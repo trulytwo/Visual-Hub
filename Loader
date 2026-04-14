@@ -9,6 +9,7 @@ local RemoteEvents = rs:WaitForChild("RemoteEvents")
 local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local UpdateEquipped = Remotes:WaitForChild("UpdateEquipped")
+local EquipWeapon = Remotes:WaitForChild("EquipWeapon")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
@@ -16,26 +17,21 @@ local SWORDS = {
     "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
     "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
     "Saber", "Abyssal Empress", "Gryphon", "Escanor", "Ichigo",
-    "KatanaSword", "Dark Blade", "Atomic", "Cutlass", "Yamato",
-    "Jinwoo", "Ice Queen", "MoonSlayer"
+    "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo", "Ice Queen"
 }
 
 local MELEES = {
     "Combat", "Fists", "Gauntlets", "Brass Knuckles", "Dragon Gauntlets",
-    "Gojo", "Yuji", "Sukuna", "Alucard", "SaberAlter", "Saber Alter",
-    "Anos", "Gilgamesh", "Madoka", "Qin Shi", "BlessedMaiden",
-    "Blessed Maiden", "Strongest Of Today", "StrongestOfToday",
-    "Strongest In History", "StrongestInHistory", "StrongestShinobi",
-    "Strongest Shinobi", "Moon Slayer", "MoonSlayer"
+    "Gojo", "Yuji", "Sukuna", "Alucard", "Saber Alter", "Anos",
+    "Gilgamesh", "Madoka", "Qin Shi", "Blessed Maiden",
+    "Strongest Of Today", "Strongest In History", "Strongest Shinobi", "Moon Slayer"
 }
 
 local POWERS = {
-    "Light", "Ice Fruit", "Ice", "Dark Fruit", "Dark",
-    "Magma", "Magma Fruit", "Flame", "Flame Fruit",
-    "Dragon Fruit", "Light Fruit"
+    "Light", "Ice", "Dark", "Magma", "Flame", "Dragon Fruit",
+    "Ice Fruit", "Dark Fruit", "Magma Fruit", "Flame Fruit", "Light Fruit"
 }
 
--- All titles
 local ALL_TITLES = {
     "Novice", "Apprentice", "Warrior", "Champion", "King",
     "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
@@ -52,10 +48,7 @@ local ALL_TITLES = {
 local seen = {}
 local TITLES = {}
 for _, t in ipairs(ALL_TITLES) do
-    if not seen[t] then
-        seen[t] = true
-        table.insert(TITLES, t)
-    end
+    if not seen[t] then seen[t] = true table.insert(TITLES, t) end
 end
 
 -- Inventory
@@ -119,44 +112,31 @@ TitleDataSync.OnClientEvent:Connect(function(data)
     end)
 end)
 
--- Equip
-local fakeEquipped = nil
-local equippedFiring = false
-local realEquipped = {}
+-- Equip - just FireServer directly, no intercept loop
+local fakeEquipped = {}
+local equipFiring = false
+local lastEquipFire = 0
+local EQUIP_DEBOUNCE = 1
 
 UpdateEquipped.OnClientEvent:Connect(function(data)
-    if equippedFiring or not data then return end
-    realEquipped = data
-    if fakeEquipped then
-        task.spawn(function()
-            equippedFiring = true
-            firesignal(UpdateEquipped.OnClientEvent, fakeEquipped)
-            equippedFiring = false
-        end)
-    end
+    if equipFiring or not data then return end
+    if next(fakeEquipped) == 0 then return end
+    local now = tick()
+    if now - lastEquipFire < EQUIP_DEBOUNCE then return end
+    -- merge fake on top of real
+    local merged = {}
+    for k, v in pairs(data) do merged[k] = v end
+    for k, v in pairs(fakeEquipped) do merged[k] = v end
+    lastEquipFire = tick()
+    equipFiring = true
+    firesignal(UpdateEquipped.OnClientEvent, merged)
+    equipFiring = false
 end)
 
 local function setEquipped(slot, itemName)
-    local newEquipped = {}
-    for k, v in pairs(realEquipped) do
-        newEquipped[k] = v
-    end
-    if fakeEquipped then
-        for k, v in pairs(fakeEquipped) do
-            newEquipped[k] = v
-        end
-    end
-    if itemName == "None" then
-        newEquipped[slot] = nil
-    else
-        newEquipped[slot] = itemName
-    end
-    fakeEquipped = newEquipped
-    task.spawn(function()
-        equippedFiring = true
-        firesignal(UpdateEquipped.OnClientEvent, fakeEquipped)
-        equippedFiring = false
-    end)
+    fakeEquipped[slot] = itemName
+    -- Fire to server so it actually equips
+    EquipWeapon:FireServer("Equip", itemName)
 end
 
 local function giveItem(itemName, amount)
@@ -296,7 +276,7 @@ local TitleInput = ""
 
 TitlesTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "All titles are unlocked. Type any title and press Set Title!"
+    Content = "All titles unlocked. Type any title and press Set Title!"
 })
 
 TitlesTab:CreateInput({
@@ -349,7 +329,7 @@ local EquipTab = Window:CreateTab("Equip", 4483362458)
 
 EquipTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Equip any sword, melee or power. Client sided only."
+    Content = "Select and equip any weapon even if you dont own it!"
 })
 
 local SelectedSword = SWORDS[1]
@@ -370,7 +350,7 @@ EquipTab:CreateButton({
     Name = "Equip Sword",
     Callback = function()
         task.spawn(function() setEquipped("Sword", SelectedSword) end)
-        Rayfield:Notify({ Title = "Success", Content = "Sword set to " .. SelectedSword, Duration = 3 })
+        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedSword, Duration = 3 })
     end,
 })
 
@@ -388,7 +368,7 @@ EquipTab:CreateButton({
     Name = "Equip Melee",
     Callback = function()
         task.spawn(function() setEquipped("Melee", SelectedMelee) end)
-        Rayfield:Notify({ Title = "Success", Content = "Melee set to " .. SelectedMelee, Duration = 3 })
+        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedMelee, Duration = 3 })
     end,
 })
 
@@ -406,19 +386,14 @@ EquipTab:CreateButton({
     Name = "Equip Power",
     Callback = function()
         task.spawn(function() setEquipped("Power", SelectedPower) end)
-        Rayfield:Notify({ Title = "Success", Content = "Power set to " .. SelectedPower, Duration = 3 })
+        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedPower, Duration = 3 })
     end,
 })
 
 EquipTab:CreateButton({
-    Name = "Reset Equip",
+    Name = "Reset All",
     Callback = function()
-        fakeEquipped = nil
-        task.spawn(function()
-            equippedFiring = true
-            firesignal(UpdateEquipped.OnClientEvent, realEquipped)
-            equippedFiring = false
-        end)
-        Rayfield:Notify({ Title = "Success", Content = "Equip reset to real!", Duration = 3 })
+        fakeEquipped = {}
+        Rayfield:Notify({ Title = "Success", Content = "Reset to real equip!", Duration = 3 })
     end,
 })
