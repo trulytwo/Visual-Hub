@@ -8,50 +8,10 @@ local Remotes = rs:WaitForChild("Remotes")
 local RemoteEvents = rs:WaitForChild("RemoteEvents")
 local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
-local UpdateEquipped = Remotes:WaitForChild("UpdateEquipped")
-local EquipWeapon = Remotes:WaitForChild("EquipWeapon")
+local ShowNotification = Remotes:WaitForChild("ShowNotification")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
-local SWORDS = {
-    "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
-    "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
-    "Saber", "Abyssal Empress", "Gryphon", "Escanor", "Ichigo",
-    "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo", "Ice Queen"
-}
-
-local MELEES = {
-    "Combat", "Fists", "Gauntlets", "Brass Knuckles", "Dragon Gauntlets",
-    "Gojo", "Yuji", "Sukuna", "Alucard", "Saber Alter", "Anos",
-    "Gilgamesh", "Madoka", "Qin Shi", "Blessed Maiden",
-    "Strongest Of Today", "Strongest In History", "Strongest Shinobi", "Moon Slayer"
-}
-
-local POWERS = {
-    "Light", "Ice", "Dark", "Magma", "Flame", "Dragon Fruit",
-    "Ice Fruit", "Dark Fruit", "Magma Fruit", "Flame Fruit", "Light Fruit"
-}
-
-local ALL_TITLES = {
-    "Novice", "Apprentice", "Warrior", "Champion", "King",
-    "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
-    "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
-    "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon",
-    "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow",
-    "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer",
-    "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One",
-    "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress",
-    "King of Shadows", "Frost Empress", "The One", "Void Empress",
-    "Shadow King", "Strongest Shinobi", "Santa's Helper"
-}
-
-local seen = {}
-local TITLES = {}
-for _, t in ipairs(ALL_TITLES) do
-    if not seen[t] then seen[t] = true table.insert(TITLES, t) end
-end
-
--- Inventory
 local fakeDict = {}
 local isFiring = false
 local lastFire = 0
@@ -90,11 +50,23 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     end)
 end)
 
--- Title
 local equippedTitle = "Novice"
 local titleFiring = false
 local realProgress = {}
 local realPity = {}
+
+local ALL_TITLES = {
+    "Novice", "Apprentice", "Warrior", "Champion", "King",
+    "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
+    "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
+    "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon",
+    "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow",
+    "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer",
+    "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One",
+    "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress",
+    "King of Shadows", "Frost Empress", "The One", "Void Empress",
+    "Shadow King", "Strongest Shinobi", "Santa's Helper"
+}
 
 TitleDataSync.OnClientEvent:Connect(function(data)
     if titleFiring or not data then return end
@@ -103,7 +75,7 @@ TitleDataSync.OnClientEvent:Connect(function(data)
     task.spawn(function()
         titleFiring = true
         firesignal(TitleDataSync.OnClientEvent, {
-            unlocked = TITLES,
+            unlocked = ALL_TITLES,
             equipped = equippedTitle,
             progress = realProgress,
             titlePity = realPity
@@ -111,33 +83,6 @@ TitleDataSync.OnClientEvent:Connect(function(data)
         titleFiring = false
     end)
 end)
-
--- Equip - just FireServer directly, no intercept loop
-local fakeEquipped = {}
-local equipFiring = false
-local lastEquipFire = 0
-local EQUIP_DEBOUNCE = 1
-
-UpdateEquipped.OnClientEvent:Connect(function(data)
-    if equipFiring or not data then return end
-    if next(fakeEquipped) == 0 then return end
-    local now = tick()
-    if now - lastEquipFire < EQUIP_DEBOUNCE then return end
-    -- merge fake on top of real
-    local merged = {}
-    for k, v in pairs(data) do merged[k] = v end
-    for k, v in pairs(fakeEquipped) do merged[k] = v end
-    lastEquipFire = tick()
-    equipFiring = true
-    firesignal(UpdateEquipped.OnClientEvent, merged)
-    equipFiring = false
-end)
-
-local function setEquipped(slot, itemName)
-    fakeEquipped[slot] = itemName
-    -- Fire to server so it actually equips
-    EquipWeapon:FireServer("Equip", itemName)
-end
 
 local function giveItem(itemName, amount)
     fakeDict[itemName] = (fakeDict[itemName] or 0) + amount
@@ -149,12 +94,22 @@ local function giveItem(itemName, amount)
     end)
 end
 
+local function showItemNotif(itemName)
+    task.spawn(function()
+        firesignal(ShowNotification.OnClientEvent, "Item", {
+            name = itemName,
+            rarity = "Mythical",
+            quantity = 1
+        })
+    end)
+end
+
 local function setTitle(titleName)
     equippedTitle = titleName
     task.spawn(function()
         titleFiring = true
         firesignal(TitleDataSync.OnClientEvent, {
-            unlocked = TITLES,
+            unlocked = ALL_TITLES,
             equipped = equippedTitle,
             progress = realProgress,
             titlePity = realPity
@@ -166,7 +121,6 @@ local function setTitle(titleName)
     end)
 end
 
--- UI
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -184,7 +138,7 @@ local BountyValue = 0
 
 BountyTab:CreateParagraph({
     Title = "Bounty Changer",
-    Content = "Change your bounty. Client sided only."
+    Content = "Change your bounty."
 })
 
 BountyTab:CreateSlider({
@@ -254,21 +208,32 @@ DropsTab:CreateButton({
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Quick: Aura Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Aura Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
-    end,
+DropsTab:CreateParagraph({
+    Title = "Quick Items",
+    Content = "Click any button to get the item!"
 })
 
-DropsTab:CreateButton({
-    Name = "Quick: Cosmetic Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
-    end,
-})
+local quickItems = {
+    "Aura Crate",
+    "Cosmetic Crate",
+    "2xDrop Product",
+    "2xLuck Product",
+    "2xGems Product",
+    "2xExp Product",
+    "2xMoney Product",
+}
+
+for _, itemName in ipairs(quickItems) do
+    DropsTab:CreateButton({
+        Name = "Quick: " .. itemName,
+        Callback = function()
+            task.spawn(function()
+                giveItem(itemName, 1)
+                showItemNotif(itemName)
+            end)
+        end,
+    })
+end
 
 -- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
@@ -321,79 +286,5 @@ TitlesTab:CreateButton({
     Callback = function()
         task.spawn(function() setTitle("Frost Empress") end)
         Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
--- Equip Tab
-local EquipTab = Window:CreateTab("Equip", 4483362458)
-
-EquipTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Select and equip any weapon even if you dont own it!"
-})
-
-local SelectedSword = SWORDS[1]
-local SelectedMelee = MELEES[1]
-local SelectedPower = POWERS[1]
-
-EquipTab:CreateDropdown({
-    Name = "Sword",
-    Options = SWORDS,
-    CurrentOption = {SWORDS[1]},
-    Flag = "SwordDropdown",
-    Callback = function(value)
-        SelectedSword = value[1] or value
-    end,
-})
-
-EquipTab:CreateButton({
-    Name = "Equip Sword",
-    Callback = function()
-        task.spawn(function() setEquipped("Sword", SelectedSword) end)
-        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedSword, Duration = 3 })
-    end,
-})
-
-EquipTab:CreateDropdown({
-    Name = "Melee",
-    Options = MELEES,
-    CurrentOption = {MELEES[1]},
-    Flag = "MeleeDropdown",
-    Callback = function(value)
-        SelectedMelee = value[1] or value
-    end,
-})
-
-EquipTab:CreateButton({
-    Name = "Equip Melee",
-    Callback = function()
-        task.spawn(function() setEquipped("Melee", SelectedMelee) end)
-        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedMelee, Duration = 3 })
-    end,
-})
-
-EquipTab:CreateDropdown({
-    Name = "Power",
-    Options = POWERS,
-    CurrentOption = {POWERS[1]},
-    Flag = "PowerDropdown",
-    Callback = function(value)
-        SelectedPower = value[1] or value
-    end,
-})
-
-EquipTab:CreateButton({
-    Name = "Equip Power",
-    Callback = function()
-        task.spawn(function() setEquipped("Power", SelectedPower) end)
-        Rayfield:Notify({ Title = "Success", Content = "Equipping " .. SelectedPower, Duration = 3 })
-    end,
-})
-
-EquipTab:CreateButton({
-    Name = "Reset All",
-    Callback = function()
-        fakeEquipped = {}
-        Rayfield:Notify({ Title = "Success", Content = "Reset to real equip!", Duration = 3 })
     end,
 })
