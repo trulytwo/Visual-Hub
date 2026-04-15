@@ -16,13 +16,26 @@ local isFiring = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
+-- FIXED: This now captures items you ALREADY have in your inventory
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     if isFiring or dataType ~= "Items" or not items then return end
+    
+    -- Sync real inventory to our fake dictionary
+    for _, item in ipairs(items) do
+        if not fakeDict[item.name] or item.quantity > fakeDict[item.name] then
+            fakeDict[item.name] = item.quantity
+        end
+    end
+
     if next(fakeDict) == nil then return end
+    
     local now = tick()
     if now - lastFire < DEBOUNCE then return end
+    
     task.spawn(function()
         local modified = false
+        
+        -- Apply fake quantities to the UI update
         for _, item in ipairs(items) do
             local fake = fakeDict[item.name]
             if fake and fake > item.quantity then
@@ -30,6 +43,8 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
                 modified = true
             end
         end
+        
+        -- Add items that might not even exist in real inventory yet
         for name, qty in pairs(fakeDict) do
             local found = false
             for _, item in ipairs(items) do
@@ -40,6 +55,7 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
                 modified = true
             end
         end
+        
         if modified then
             lastFire = tick()
             isFiring = true
@@ -65,6 +81,14 @@ end)
 
 local function giveItem(itemName, amount)
     fakeDict[itemName] = (fakeDict[itemName] or 0) + amount
+    -- Force a UI refresh
+    isFiring = true
+    local items = {}
+    for name, qty in pairs(fakeDict) do
+        table.insert(items, {name = name, quantity = qty, image = "rbxassetid://129120260132029"})
+    end
+    firesignal(UpdateInventory.OnClientEvent, "Items", items)
+    isFiring = false
 end
 
 local function setTitle(titleName)
@@ -195,22 +219,6 @@ DropsTab:CreateButton({
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Quick: Aura Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Aura Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
-    end,
-})
-
-DropsTab:CreateButton({
-    Name = "Quick: Cosmetic Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
-    end,
-})
-
 -- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
 local TitleInput = ""
@@ -241,30 +249,6 @@ TitlesTab:CreateButton({
     end,
 })
 
-TitlesTab:CreateButton({
-    Name = "Quick: Eminence in Shadow",
-    Callback = function()
-        task.spawn(function() setTitle("Eminence in Shadow") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
-TitlesTab:CreateButton({
-    Name = "Quick: Shadow Monarch",
-    Callback = function()
-        task.spawn(function() setTitle("Shadow Monarch") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
-TitlesTab:CreateButton({
-    Name = "Quick: Frost Empress",
-    Callback = function()
-        task.spawn(function() setTitle("Frost Empress") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
 -- Dupe Tab
 local DupeTab = Window:CreateTab("Dupe", 4483362458)
 local DupeItemName = ""
@@ -272,7 +256,7 @@ local isDuping = false
 
 DupeTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Type an item name and press Dupe. The item will be doubled over time."
+    Content = "IMPORTANT: Open your inventory once before using this so the script can see your items!"
 })
 
 DupeTab:CreateInput({
@@ -300,12 +284,12 @@ DupeTab:CreateButton({
         local currentAmount = fakeDict[itemName] or 0
 
         if currentAmount <= 0 then
-            Rayfield:Notify({ Title = "Error", Content = "You dont have " .. itemName .. " in your inventory!", Duration = 3 })
+            Rayfield:Notify({ Title = "Error", Content = "Item not found! Try opening your inventory first.", Duration = 3 })
             return
         end
 
         local targetAmount = currentAmount * 2
-        local estimatedTime = math.random(30, 35)
+        local estimatedTime = math.random(10, 15) -- Shortened for testing
         isDuping = true
 
         Rayfield:Notify({
@@ -315,32 +299,11 @@ DupeTab:CreateButton({
         })
 
         task.spawn(function()
-            local elapsed = 0
-            local interval = estimatedTime / (targetAmount - currentAmount)
-
-            while fakeDict[itemName] < targetAmount do
-                task.wait(interval)
-                fakeDict[itemName] = (fakeDict[itemName] or 0) + 1
-                elapsed = elapsed + interval
-
-                -- Update inventory every 5 items so it feels natural
-                if (fakeDict[itemName] - currentAmount) % 5 == 0 then
-                    isFiring = true
-                    local items = {}
-                    for name, qty in pairs(fakeDict) do
-                        table.insert(items, {
-                            name = name,
-                            quantity = qty,
-                            image = "rbxassetid://129120260132029"
-                        })
-                    end
-                    firesignal(UpdateInventory.OnClientEvent, "Items", items)
-                    isFiring = false
-                end
-            end
-
-            -- Final update
+            task.wait(estimatedTime)
+            
             fakeDict[itemName] = targetAmount
+            
+            -- Force UI Update
             isFiring = true
             local items = {}
             for name, qty in pairs(fakeDict) do
