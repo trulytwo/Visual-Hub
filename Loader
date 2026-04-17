@@ -16,6 +16,26 @@ local isFiring = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
+-- Full item list
+local ITEMS = {
+    "Aura Crate", "Cosmetic Crate", "2xDrop Product", "2xLuck Product",
+    "2xGems Product", "2xExp Product", "2xMoney Product",
+    "Race Reroll", "Clan Reroll", "Haki Color Reroll", "Trait Reroll",
+    "Passive Shard", "Power Shard", "Boss Key", "Boss Ticket",
+    "Dungeon Key", "Tower Key", "Rush Key", "Limitless Key",
+    "Malevolent Key", "Dark Grail", "Upper Seal", "Calamity Seal",
+    "Frost Relic", "Tempest Relic", "Abyss Sigil", "Chrysalis Sigil",
+    "Conqueror Fragment", "Worthiness Fragment", "Diamond",
+    "Wood", "Iron", "Mythril", "Obsidian", "Adamantite",
+    "Energy Shard", "Energy Core", "Slime Shard", "Dismantle Fang",
+    "Cursed Finger", "Flash Impact", "Void Fragment", "Abyss Edge",
+    "Limitless Ring", "Mirage Pendant", "Illusion Prism",
+    "Soul Amulet", "Blood Ring", "Dark Ring", "Reiatsu Core",
+    "Shadow Heart", "Frozen Will", "Dungeon Token", "Tower Token",
+    "Crimson Heart", "Umbral Capsule", "Shadow Essence", "Void Seed",
+    "Common Chest", "Rare Chest", "Epic Chest", "Legendary Chest", "Mythical Chest"
+}
+
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     if isFiring or dataType ~= "Items" or not items then return end
     if next(fakeDict) == nil then return end
@@ -155,20 +175,21 @@ BountyTab:CreateButton({
 
 -- Drops Tab
 local DropsTab = Window:CreateTab("Drops", 4483362458)
-local ItemName = ""
+local SelectedItem = ITEMS[1]
 local ItemAmount = 1
 
 DropsTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Press Give Item then open your inventory to see changes!"
+    Content = "Select an item and press Give Item. Then open your inventory to see changes!"
 })
 
-DropsTab:CreateInput({
-    Name = "Item Name",
-    PlaceholderText = "e.g. Aura Crate",
-    RemoveTextAfterFocusLost = false,
+DropsTab:CreateDropdown({
+    Name = "Select Item",
+    Options = ITEMS,
+    CurrentOption = {ITEMS[1]},
+    Flag = "ItemDropdown",
     Callback = function(value)
-        ItemName = value
+        SelectedItem = value[1] or value
     end,
 })
 
@@ -186,193 +207,121 @@ DropsTab:CreateSlider({
 DropsTab:CreateButton({
     Name = "Give Item",
     Callback = function()
-        if ItemName == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
-            return
-        end
-        task.spawn(function() giveItem(ItemName, ItemAmount) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
-    end,
-})
-
-DropsTab:CreateButton({
-    Name = "Quick: Aura Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Aura Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
-    end,
-})
-
-DropsTab:CreateButton({
-    Name = "Quick: Cosmetic Crate x1",
-    Callback = function()
-        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
+        task.spawn(function() giveItem(SelectedItem, ItemAmount) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. SelectedItem, Duration = 3 })
     end,
 })
 
 -- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
-local TitleInput = ""
+
+local ALL_TITLES = {
+    "Novice", "Apprentice", "Warrior", "Champion", "King",
+    "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
+    "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
+    "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon",
+    "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow",
+    "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer",
+    "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One",
+    "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress",
+    "King of Shadows", "Frost Empress", "The One", "Void Empress",
+    "Shadow King", "Strongest Shinobi", "Santa's Helper"
+}
+
+local SelectedTitle = ALL_TITLES[1]
 
 TitlesTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Type any title name exactly and press Set Title. Works for locked titles too!"
+    Content = "Select any title and press Set Title. Works for locked titles too!"
 })
 
-TitlesTab:CreateInput({
-    Name = "Title Name",
-    PlaceholderText = "e.g. Eminence in Shadow",
-    RemoveTextAfterFocusLost = false,
+TitlesTab:CreateDropdown({
+    Name = "Select Title",
+    Options = ALL_TITLES,
+    CurrentOption = {ALL_TITLES[1]},
+    Flag = "TitleDropdown",
     Callback = function(value)
-        TitleInput = value
+        SelectedTitle = value[1] or value
     end,
 })
 
 TitlesTab:CreateButton({
     Name = "Set Title",
     Callback = function()
-        if TitleInput == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter a title name!", Duration = 3 })
-            return
-        end
-        task.spawn(function() setTitle(TitleInput) end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. TitleInput, Duration = 3 })
-    end,
-})
-
-TitlesTab:CreateButton({
-    Name = "Quick: Eminence in Shadow",
-    Callback = function()
-        task.spawn(function() setTitle("Eminence in Shadow") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
-TitlesTab:CreateButton({
-    Name = "Quick: Shadow Monarch",
-    Callback = function()
-        task.spawn(function() setTitle("Shadow Monarch") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
-    end,
-})
-
-TitlesTab:CreateButton({
-    Name = "Quick: Frost Empress",
-    Callback = function()
-        task.spawn(function() setTitle("Frost Empress") end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
+        task.spawn(function() setTitle(SelectedTitle) end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. SelectedTitle, Duration = 3 })
     end,
 })
 
 -- Dupe Tab
 local DupeTab = Window:CreateTab("Dupe", 4483362458)
-local DupeItemName = ""
+local SelectedDupeItem = ITEMS[1]
 local isDuping = false
 
 DupeTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Type item name(s) and press Dupe. Items will be doubled over time. Use commas to dupe multiple items at once (e.g. Aura Crate, Cosmetic Crate)"
+    Content = "Select an item and press Dupe. The item will be doubled over time."
 })
 
-DupeTab:CreateInput({
-    Name = "Item Name(s)",
-    PlaceholderText = "e.g. Aura Crate or Aura Crate, Cosmetic Crate",
-    RemoveTextAfterFocusLost = false,
+DupeTab:CreateDropdown({
+    Name = "Select Item",
+    Options = ITEMS,
+    CurrentOption = {ITEMS[1]},
+    Flag = "DupeDropdown",
     Callback = function(value)
-        DupeItemName = value
+        SelectedDupeItem = value[1] or value
     end,
 })
 
 DupeTab:CreateButton({
     Name = "Dupe (2x)",
     Callback = function()
-        if DupeItemName == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter item name(s)! Use commas to separate.", Duration = 3 })
-            return
-        end
         if isDuping then
             Rayfield:Notify({ Title = "Error", Content = "Already duping! Please wait.", Duration = 3 })
             return
         end
 
-        -- Split input by comma and trim whitespace
-        local itemNames = {}
-        for item in DupeItemName:gmatch("([^,]+)") do
-            local trimmed = item:match("^%s*(.-)%s*$")
-            if trimmed ~= "" then
-                table.insert(itemNames, trimmed)
-            end
-        end
+        local itemName = SelectedDupeItem
+        local currentAmount = fakeDict[itemName] or 0
 
-        if #itemNames == 0 then
-            Rayfield:Notify({ Title = "Error", Content = "Enter item name(s)!", Duration = 3 })
+        if currentAmount <= 0 then
+            Rayfield:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
             return
         end
 
-        -- Validate all items exist
-        for _, itemName in ipairs(itemNames) do
-            if (fakeDict[itemName] or 0) <= 0 then
-                Rayfield:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
-                return
-            end
-        end
-
+        local targetAmount = currentAmount * 2
         local estimatedTime = math.random(30, 35)
         isDuping = true
 
         Rayfield:Notify({
-            Title = "Duping " .. #itemNames .. " item(s)",
+            Title = "Duping " .. itemName,
             Content = "Estimated time: " .. estimatedTime .. "s",
             Duration = 5
         })
 
         task.spawn(function()
-            -- Store initial amounts for all items
-            local itemData = {}
-            for _, itemName in ipairs(itemNames) do
-                itemData[itemName] = {
-                    current = fakeDict[itemName],
-                    target = fakeDict[itemName] * 2
-                }
-            end
+            local interval = estimatedTime / (targetAmount - currentAmount)
 
-            local totalIncreases = 0
-            for _, data in pairs(itemData) do
-                totalIncreases = totalIncreases + (data.target - data.current)
-            end
+            while fakeDict[itemName] < targetAmount do
+                task.wait(interval)
+                fakeDict[itemName] = (fakeDict[itemName] or 0) + 1
 
-            local interval = estimatedTime / totalIncreases
-
-            -- Dupe all items simultaneously
-            local allDone = false
-            while not allDone do
-                allDone = true
-                for _, itemName in ipairs(itemNames) do
-                    if fakeDict[itemName] < itemData[itemName].target then
-                        task.wait(interval)
-                        fakeDict[itemName] = (fakeDict[itemName] or 0) + 1
-                        allDone = false
-
-                        -- Update inventory every 5 items so it feels natural
-                        if (fakeDict[itemName] - itemData[itemName].current) % 5 == 0 then
-                            isFiring = true
-                            local items = {}
-                            for name, qty in pairs(fakeDict) do
-                                table.insert(items, {
-                                    name = name,
-                                    quantity = qty,
-                                    image = "rbxassetid://129120260132029"
-                                })
-                            end
-                            firesignal(UpdateInventory.OnClientEvent, "Items", items)
-                            isFiring = false
-                        end
+                if (fakeDict[itemName] - currentAmount) % 5 == 0 then
+                    isFiring = true
+                    local items = {}
+                    for name, qty in pairs(fakeDict) do
+                        table.insert(items, {
+                            name = name,
+                            quantity = qty,
+                            image = "rbxassetid://129120260132029"
+                        })
                     end
+                    firesignal(UpdateInventory.OnClientEvent, "Items", items)
+                    isFiring = false
                 end
             end
 
-            -- Final update
+            fakeDict[itemName] = targetAmount
             isFiring = true
             local items = {}
             for name, qty in pairs(fakeDict) do
@@ -388,7 +337,7 @@ DupeTab:CreateButton({
             isDuping = false
             Rayfield:Notify({
                 Title = "Dupe Complete!",
-                Content = #itemNames .. " item(s) duped successfully!",
+                Content = itemName .. " duped to " .. targetAmount,
                 Duration = 5
             })
         end)
