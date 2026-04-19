@@ -1,13 +1,14 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local bounty = player:WaitForChild("leaderstats"):WaitForChild("Bounty")
+local RS = game:GetService("ReplicatedStorage")
 
-local rs = game:GetService("ReplicatedStorage")
-local Remotes = rs:WaitForChild("Remotes")
-local RemoteEvents = rs:WaitForChild("RemoteEvents")
+-- FIXED PATHING
+local Remotes = RS:WaitForChild("Remotes")
+local RemoteEvents = RS:WaitForChild("RemoteEvents")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
-local TitleChatSync = RemoteEvents:WaitForChild("RemoteEvents"):WaitForChild("TitleChatSync")
+local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
 -- DATABASE
 local Lists = {
@@ -19,7 +20,7 @@ local Lists = {
 local fakeDict = {}
 local isFiring, isDuping = false, false
 
--- Rayfield UI Setup
+-- UI Initialization
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({Name = "Express Hub", DisableRayfieldPrompts = true})
 
@@ -28,6 +29,11 @@ local function getCategory(name)
         for _, item in ipairs(items) do if item == name then return cat end end
     end
     return "Items"
+end
+
+local function giveItem(name, amt)
+    fakeDict[name] = {qty = (fakeDict[name] and fakeDict[name].qty or 0) + amt, cat = getCategory(name)}
+    Rayfield:Notify({Title = "Obtained", Content = amt .. "x " .. name, Duration = 3})
 end
 
 UpdateInventory.OnClientEvent:Connect(function(type, items)
@@ -46,13 +52,14 @@ UpdateInventory.OnClientEvent:Connect(function(type, items)
     end)
 end)
 
-local function giveItem(name, amt)
-    fakeDict[name] = {qty = (fakeDict[name] and fakeDict[name].qty or 0) + amt, cat = getCategory(name)}
-    -- Automatic Notification
-    Rayfield:Notify({Title = "Obtained", Content = amt .. "x " .. name, Duration = 3})
-end
+-- TAB: BOUNTY
+local BountyTab = Window:CreateTab("Bounty", 0)
+local bVal = 0
+BountyTab:CreateSlider({Name = "Bounty Amount", Range = {0, 10000000}, Callback = function(v) bVal = v end})
+BountyTab:CreateButton({Name = "Set Bounty", Callback = function() bounty.Value = bVal end})
+BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
 
--- Drops Tab
+-- TAB: DROPS
 local DropsTab = Window:CreateTab("Drops", 0)
 local iName, iAmt = "", 1
 DropsTab:CreateInput({Name = "Item Name", Callback = function(v) iName = v end})
@@ -61,24 +68,25 @@ DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(iName,
 DropsTab:CreateButton({Name = "Quick: Aura Crate", Callback = function() giveItem("Aura Crate", 1) end})
 DropsTab:CreateButton({Name = "Quick: Cosmetic Crate", Callback = function() giveItem("Cosmetic Crate", 1) end})
 DropsTab:CreateButton({Name = "Quick: EsDeath Set", Callback = function()
-    giveItem("Ice Core", 3)
-    giveItem("Frozen", 14)
-    giveItem("Glacier Remnant", 9)
-    giveItem("Battle Shard", 17)
-    giveItem("Frost Relic", 110)
+    giveItem("Ice Core", 3) giveItem("Frozen", 14) giveItem("Glacier Remnant", 9) giveItem("Battle Shard", 17) giveItem("Frost Relic", 110)
 end})
 
--- Titles Tab
+-- TAB: TITLES
 local TitlesTab = Window:CreateTab("Titles", 0)
 local tInput = ""
 TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) tInput = v end})
 TitlesTab:CreateButton({Name = "Set Title", Callback = function() 
     firesignal(TitleDataSync.OnClientEvent, {unlocked = {tInput}, equipped = tInput})
     firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, tInput)
-    Rayfield:Notify({Title = "Success", Content = "Title Set to "..tInput, Duration = 3})
+    Rayfield:Notify({Title = "Success", Content = "Title Set to " .. tInput, Duration = 3})
+end})
+TitlesTab:CreateButton({Name = "Quick: Eminence in Shadow", Callback = function() 
+    firesignal(TitleDataSync.OnClientEvent, {unlocked = {"Eminence in Shadow"}, equipped = "Eminence in Shadow"})
+    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, "Eminence in Shadow")
+    Rayfield:Notify({Title = "Success", Content = "Set Eminence!", Duration = 3})
 end})
 
--- Dupe Tab
+-- TAB: DUPE
 local DupeTab = Window:CreateTab("Dupe", 0)
 local DupeInput = ""
 DupeTab:CreateInput({Name = "Item Name", Callback = function(v) DupeInput = v end})
@@ -86,8 +94,9 @@ DupeTab:CreateButton({Name = "Dupe (2x)", Callback = function()
     if isDuping or not fakeDict[DupeInput] then return end
     isDuping = true
     local timer = math.random(25, 30)
-    Rayfield:Notify({Title = "Duping...", Content = "Time: "..timer.."s", Duration = 5})
+    Rayfield:Notify({Title = "Duping...", Content = "Waiting " .. timer .. "s", Duration = 5})
     task.wait(timer)
     giveItem(DupeInput, fakeDict[DupeInput].qty)
     isDuping = false
+    Rayfield:Notify({Title = "Success", Content = "Duplicated!", Duration = 3})
 end})
