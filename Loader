@@ -250,3 +250,14 @@ DropsTab:CreateSlider({
 DropsTab:CreateButton({
     Name = "Give Item",
     Callback = function()
+        if ItemName == "" then
+            Rayfield:Notify({Title="Error",Content="Enter item!",Duration=3})
+            return
+        end
+
+        giveItem(ItemName, ItemAmount)
+
+        Rayfield:Notify({
+            Title="Success",
+            Content="Given "..ItemAmount.."x "..ItemName,
+           
