@@ -10,13 +10,10 @@ local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
--- DATABASE FOR MELEE ONLY
-local MeleeList = {
-    ["Strongest Shinobi"]=true, ["StrongestOfToday"]=true, ["TheWorld"]=true, ["MoonSlayer"]=true, ["Gojo"]=true, ["Yuji"]=true, 
-    ["Brass Knuckles"]=true, ["Strongest Of Today"]=true, ["BlessedMaiden"]=true, ["Cosmic Being"]=true, ["Dragon Gauntlets"]=true, 
-    ["Combat"]=true, ["Gauntlets"]=true, ["Anos"]=true, ["SaberAlter"]=true, ["Alucard"]=true, ["Fists"]=true, ["Sukuna"]=true, 
-    ["StrongestInHistory"]=true, ["The World"]=true, ["CosmicBeing"]=true, ["Madoka"]=true, ["Qin Shi"]=true, ["Saber Alter"]=true, 
-    ["Moon Slayer"]=true, ["Gilgamesh"]=true, ["StrongestShinobi"]=true, ["Fighting Style"]=true, ["Blessed Maiden"]=true, ["Strongest In History"]=true
+-- DATABASE FOR CATEGORIZATION
+local Database = {
+    Melee = {["Strongest Shinobi"]=true, ["StrongestOfToday"]=true, ["TheWorld"]=true, ["MoonSlayer"]=true, ["Gojo"]=true, ["Yuji"]=true, ["Brass Knuckles"]=true, ["Strongest Of Today"]=true, ["BlessedMaiden"]=true, ["Cosmic Being"]=true, ["Dragon Gauntlets"]=true, ["Combat"]=true, ["Gauntlets"]=true, ["Anos"]=true, ["SaberAlter"]=true, ["Alucard"]=true, ["Fists"]=true, ["Sukuna"]=true, ["StrongestInHistory"]=true, ["The World"]=true, ["CosmicBeing"]=true, ["Madoka"]=true, ["Qin Shi"]=true, ["Saber Alter"]=true, ["Moon Slayer"]=true, ["Gilgamesh"]=true, ["StrongestShinobi"]=true, ["Fighting Style"]=true, ["Blessed Maiden"]=true, ["Strongest In History"]=true},
+    Swords = {["Shadow"]=true, ["Ragna"]=true, ["Rimuru"]=true, ["Shadow Monarch"]=true, ["True Aizen"]=true, ["Dual Katana"]=true, ["Longsword"]=true, ["Aizen"]=true, ["Sword"]=true, ["Katana"]=true, ["Saber"]=true, ["Abyssal Empress"]=true, ["Dragon Goddess"]=true, ["Escanor"]=true, ["Ice Queen"]=true, ["Gryphon"]=true, ["Ichigo"]=true, ["KatanaSword"]=true, ["IceQueen"]=true, ["AbyssalEmpress"]=true, ["DragonGoddess"]=true, ["Great Mage"]=true, ["Dark Blade"]=true, ["Atomic"]=true, ["Cutlass"]=true, ["Yamato"]=true, ["TrueAizen"]=true, ["ShadowMonarch"]=true, ["GreatMage"]=true, ["Jinwoo"]=true}
 }
 
 local fakeDict = {} 
@@ -25,21 +22,22 @@ local lastFire = 0
 local DEBOUNCE = 0.5
 
 local function getCategory(name)
-    if MeleeList[name] then return "Melee" end
-    return "Items" -- Everything else defaults to Items
+    if Database.Melee[name] then return "Melee" end
+    if Database.Swords[name] then return "Swords" end
+    return "Items"
 end
 
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     if isFiring or dataType ~= "Items" or not items then return end
+    if next(fakeDict) == nil then return end
     local now = tick()
     if now - lastFire < DEBOUNCE then return end
-    
     task.spawn(function()
         local modified = false
         for _, item in ipairs(items) do
-            if fakeDict[item.name] and fakeDict[item.name].qty > item.quantity then
-                item.quantity = fakeDict[item.name].qty
-                item.type = getCategory(item.name) -- Ensure type matches
+            local fake = fakeDict[item.name]
+            if fake and fake.qty > item.quantity then
+                item.quantity = fake.qty
                 modified = true
             end
         end
@@ -49,7 +47,7 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
                 if item.name == name then found = true break end
             end
             if not found then
-                table.insert(items, { name = name, quantity = data.qty, type = data.category, image = "rbxassetid://129120260132029" })
+                table.insert(items, { name = name, quantity = data.qty, type = data.cat, image = "rbxassetid://129120260132029" })
                 modified = true
             end
         end
@@ -62,18 +60,64 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     end)
 end)
 
+local fakeTitleData = nil
+local titleFiring = false
+
+TitleDataSync.OnClientEvent:Connect(function(data)
+    if titleFiring or not data then return end
+    if fakeTitleData then
+        task.spawn(function()
+            titleFiring = true
+            firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+            titleFiring = false
+        end)
+    end
+end)
+
 local function giveItem(itemName, amount)
     local cat = getCategory(itemName)
-    if not fakeDict[itemName] then
-        fakeDict[itemName] = {qty = amount, category = cat}
-    else
-        fakeDict[itemName].qty = fakeDict[itemName].qty + amount
-    end
+    fakeDict[itemName] = {qty = (fakeDict[itemName] and fakeDict[itemName].qty or 0) + amount, cat = cat}
 end
 
--- Rayfield UI Setup
+local function setTitle(titleName)
+    fakeTitleData = {unlocked = {titleName}, equipped = titleName, progress = {}, titlePity = {}}
+    task.spawn(function()
+        titleFiring = true
+        firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+        titleFiring = false
+        firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+    end)
+end
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
 
--- ... [Keep your existing Tab/Button creation code here] ...
--- Just ensure your "Give Item" button calls the giveItem function as before.
+-- Bounty Tab
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+local BountyValue = 0
+BountyTab:CreateSlider({Name = "Bounty Amount", Range = {0, 10000000}, Increment = 1000, Callback = function(v) BountyValue = v end})
+BountyTab:CreateButton({Name = "Set Bounty", Callback = function() bounty.Value = BountyValue end})
+
+-- Drops Tab
+local DropsTab = Window:CreateTab("Drops", 4483362458)
+local ItemName, ItemAmount = "", 1
+DropsTab:CreateInput({Name = "Item Name", Callback = function(v) ItemName = v end})
+DropsTab:CreateSlider({Name = "Amount", Range = {1, 100}, Callback = function(v) ItemAmount = v end})
+DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, ItemAmount) end})
+
+-- Titles Tab
+local TitlesTab = Window:CreateTab("Titles", 4483362458)
+local TitleInput = ""
+TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) TitleInput = v end})
+TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
+
+-- Dupe Tab
+local DupeTab = Window:CreateTab("Dupe", 4483362458)
+local DupeItemName = ""
+DupeTab:CreateInput({Name = "Item Names", PlaceholderText = "e.g. Qin Shi, Aura Crate", Callback = function(v) DupeItemName = v end})
+DupeTab:CreateButton({Name = "Dupe (2x)", Callback = function()
+    for item in DupeItemName:gmatch("([^,]+)") do
+        local name = item:match("^%s*(.-)%s*$")
+        if fakeDict[name] then giveItem(name, fakeDict[name].qty) end
+    end
+end})
