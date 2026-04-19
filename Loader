@@ -45,7 +45,6 @@ local GAME_DATA = {
     }
 }
 
--- ================= HELPERS =================
 local function getItemType(name)
     for _, v in ipairs(GAME_DATA.SWORDS) do
         if v == name then return "Swords" end
@@ -163,7 +162,6 @@ local function setTitle(titleName)
     end)
 end
 
--- ================= FUNCTIONS =================
 local function giveItem(name, amount)
     fakeDict[name] = (fakeDict[name] or 0) + amount
 end
@@ -175,6 +173,31 @@ local Window = Rayfield:CreateWindow({
     Name = "Express Hub",
     LoadingTitle = "Express Hub",
     LoadingSubtitle = "Loading...",
+})
+
+-- Bounty Tab
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+local BountyValue = 0
+
+BountyTab:CreateSlider({
+    Name = "Bounty",
+    Range = {0,10000000},
+    CurrentValue = 0,
+    Callback = function(v) BountyValue = v end
+})
+
+BountyTab:CreateButton({
+    Name = "Set Bounty",
+    Callback = function()
+        bounty.Value = BountyValue
+    end
+})
+
+BountyTab:CreateButton({
+    Name = "Max Bounty",
+    Callback = function()
+        bounty.Value = 10000000
+    end
 })
 
 -- Drops Tab
@@ -199,9 +222,21 @@ DropsTab:CreateSlider({
 DropsTab:CreateButton({
     Name = "Give Item",
     Callback = function()
-        if ItemName == "" then return end
-        giveItem(ItemName, ItemAmount)
+        if ItemName ~= "" then
+            giveItem(ItemName, ItemAmount)
+        end
     end
+})
+
+-- Quick Items
+DropsTab:CreateButton({
+    Name = "Quick: Aura Crate",
+    Callback = function() giveItem("Aura Crate",1) end
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Cosmetic Crate",
+    Callback = function() giveItem("Cosmetic Crate",1) end
 })
 
 -- Titles Tab
@@ -218,7 +253,45 @@ TitlesTab:CreateInput({
 TitlesTab:CreateButton({
     Name = "Set Title",
     Callback = function()
-        if TitleInput == "" then return end
-        setTitle(TitleInput)
+        if TitleInput ~= "" then
+            setTitle(TitleInput)
+        end
+    end
+})
+
+-- Dupe Tab
+local DupeTab = Window:CreateTab("Dupe", 4483362458)
+
+local DupeItemName = ""
+local isDuping = false
+
+DupeTab:CreateInput({
+    Name = "Item Name(s)",
+    PlaceholderText = "Aura Crate, Cosmetic Crate",
+    Callback = function(v) DupeItemName = v end
+})
+
+DupeTab:CreateButton({
+    Name = "Dupe (2x)",
+    Callback = function()
+        if DupeItemName == "" or isDuping then return end
+
+        local items = {}
+        for item in DupeItemName:gmatch("([^,]+)") do
+            table.insert(items, item:match("^%s*(.-)%s*$"))
+        end
+
+        isDuping = true
+
+        task.spawn(function()
+            for _, name in ipairs(items) do
+                local current = fakeDict[name] or 0
+                for i = 1, current do
+                    task.wait(0.1)
+                    fakeDict[name] = (fakeDict[name] or 0) + 1
+                end
+            end
+            isDuping = false
+        end)
     end
 })
