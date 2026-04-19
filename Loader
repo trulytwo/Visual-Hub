@@ -5,7 +5,7 @@ local bounty = leaderstats:WaitForChild("Bounty")
 
 local rs = game:GetService("ReplicatedStorage")
 local Remotes = rs:WaitForChild("Remotes")
-local RemoteEvents = rs:GetService("RemoteEvents")
+local RemoteEvents = rs:WaitForChild("RemoteEvents")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
