@@ -19,6 +19,10 @@ local Lists = {
 local fakeDict = {}
 local isFiring, isDuping = false, false
 
+-- Rayfield UI Setup
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({Name = "Express Hub", DisableRayfieldPrompts = true})
+
 local function getCategory(name)
     for cat, items in pairs(Lists) do
         for _, item in ipairs(items) do if item == name then return cat end end
@@ -44,39 +48,27 @@ end)
 
 local function giveItem(name, amt)
     fakeDict[name] = {qty = (fakeDict[name] and fakeDict[name].qty or 0) + amt, cat = getCategory(name)}
+    -- Automatic Notification
+    Rayfield:Notify({Title = "Obtained", Content = amt .. "x " .. name, Duration = 3})
 end
 
--- UI
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({Name = "Express Hub", DisableRayfieldPrompts = true})
-
--- Drops
+-- Drops Tab
 local DropsTab = Window:CreateTab("Drops", 0)
 local iName, iAmt = "", 1
 DropsTab:CreateInput({Name = "Item Name", Callback = function(v) iName = v end})
 DropsTab:CreateSlider({Name = "Amount", Range = {1, 100}, Callback = function(v) iAmt = v end})
-DropsTab:CreateButton({Name = "Give Item", Callback = function() 
-    giveItem(iName, iAmt)
-    Rayfield:Notify({Title = "Success", Content = "Given "..iAmt.."x "..iName, Duration = 3})
-end})
-DropsTab:CreateButton({Name = "Quick: Aura Crate", Callback = function() 
-    giveItem("Aura Crate", 1)
-    Rayfield:Notify({Title = "Success", Content = "Given Aura Crate!", Duration = 3})
-end})
-DropsTab:CreateButton({Name = "Quick: Cosmetic Crate", Callback = function() 
-    giveItem("Cosmetic Crate", 1)
-    Rayfield:Notify({Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3})
-end})
+DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(iName, iAmt) end})
+DropsTab:CreateButton({Name = "Quick: Aura Crate", Callback = function() giveItem("Aura Crate", 1) end})
+DropsTab:CreateButton({Name = "Quick: Cosmetic Crate", Callback = function() giveItem("Cosmetic Crate", 1) end})
 DropsTab:CreateButton({Name = "Quick: EsDeath Set", Callback = function()
     giveItem("Ice Core", 3)
     giveItem("Frozen", 14)
     giveItem("Glacier Remnant", 9)
     giveItem("Battle Shard", 17)
     giveItem("Frost Relic", 110)
-    Rayfield:Notify({Title = "Success", Content = "EsDeath Set Given!", Duration = 3})
 end})
 
--- Titles
+-- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 0)
 local tInput = ""
 TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) tInput = v end})
@@ -85,13 +77,8 @@ TitlesTab:CreateButton({Name = "Set Title", Callback = function()
     firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, tInput)
     Rayfield:Notify({Title = "Success", Content = "Title Set to "..tInput, Duration = 3})
 end})
-TitlesTab:CreateButton({Name = "Quick: Eminence in Shadow", Callback = function() 
-    firesignal(TitleDataSync.OnClientEvent, {unlocked = {"Eminence in Shadow"}, equipped = "Eminence in Shadow"})
-    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, "Eminence in Shadow")
-    Rayfield:Notify({Title = "Success", Content = "Title Set!", Duration = 3})
-end})
 
--- Dupe
+-- Dupe Tab
 local DupeTab = Window:CreateTab("Dupe", 0)
 local DupeInput = ""
 DupeTab:CreateInput({Name = "Item Name", Callback = function(v) DupeInput = v end})
@@ -103,5 +90,4 @@ DupeTab:CreateButton({Name = "Dupe (2x)", Callback = function()
     task.wait(timer)
     giveItem(DupeInput, fakeDict[DupeInput].qty)
     isDuping = false
-    Rayfield:Notify({Title = "Success", Content = "Item Duplicated!", Duration = 3})
 end})
