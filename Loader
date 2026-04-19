@@ -6,7 +6,6 @@ local bounty = leaderstats:WaitForChild("Bounty")
 local rs = game:GetService("ReplicatedStorage")
 local Remotes = rs:WaitForChild("Remotes")
 local RemoteEvents = rs:WaitForChild("RemoteEvents")
-local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
@@ -98,11 +97,7 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
             lastFire = tick()
             isFiring = true
 
-            local categorized = {
-                Items = {},
-                Swords = {},
-                Melee = {}
-            }
+            local categorized = {Items = {}, Swords = {}, Melee = {}}
 
             for _, item in ipairs(items) do
                 local t = getItemType(item.name)
@@ -182,6 +177,7 @@ local BountyValue = 0
 BountyTab:CreateSlider({
     Name = "Bounty",
     Range = {0,10000000},
+    Increment = 1000,
     CurrentValue = 0,
     Callback = function(v) BountyValue = v end
 })
@@ -202,19 +198,19 @@ BountyTab:CreateButton({
 
 -- Drops Tab
 local DropsTab = Window:CreateTab("Drops", 4483362458)
-
 local ItemName = ""
 local ItemAmount = 1
 
 DropsTab:CreateInput({
     Name = "Item Name",
-    PlaceholderText = "e.g. Qin Shi / Yamato",
+    PlaceholderText = "Qin Shi / Yamato",
     Callback = function(v) ItemName = v end
 })
 
 DropsTab:CreateSlider({
     Name = "Amount",
     Range = {1,100},
+    Increment = 1,
     CurrentValue = 1,
     Callback = function(v) ItemAmount = v end
 })
@@ -222,46 +218,93 @@ DropsTab:CreateSlider({
 DropsTab:CreateButton({
     Name = "Give Item",
     Callback = function()
-        if ItemName ~= "" then
-            giveItem(ItemName, ItemAmount)
+        if ItemName == "" then
+            Rayfield:Notify({Title="Error",Content="Enter item!",Duration=3})
+            return
         end
+
+        giveItem(ItemName, ItemAmount)
+
+        Rayfield:Notify({
+            Title="Success",
+            Content="Given "..ItemAmount.."x "..ItemName,
+            Duration=3
+        })
     end
 })
 
 -- Quick Items
 DropsTab:CreateButton({
     Name = "Quick: Aura Crate",
-    Callback = function() giveItem("Aura Crate",1) end
+    Callback = function()
+        giveItem("Aura Crate",1)
+        Rayfield:Notify({Title="Success",Content="Given Aura Crate!",Duration=3})
+    end
 })
 
 DropsTab:CreateButton({
     Name = "Quick: Cosmetic Crate",
-    Callback = function() giveItem("Cosmetic Crate",1) end
+    Callback = function()
+        giveItem("Cosmetic Crate",1)
+        Rayfield:Notify({Title="Success",Content="Given Cosmetic Crate!",Duration=3})
+    end
 })
 
 -- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
-
 local TitleInput = ""
 
 TitlesTab:CreateInput({
     Name = "Title",
-    PlaceholderText = "e.g. Ancient Mage",
+    PlaceholderText = "Ancient Mage",
     Callback = function(v) TitleInput = v end
 })
 
 TitlesTab:CreateButton({
     Name = "Set Title",
     Callback = function()
-        if TitleInput ~= "" then
-            setTitle(TitleInput)
+        if TitleInput == "" then
+            Rayfield:Notify({Title="Error",Content="Enter title!",Duration=3})
+            return
         end
+
+        setTitle(TitleInput)
+
+        Rayfield:Notify({
+            Title="Success",
+            Content="Title set to "..TitleInput,
+            Duration=3
+        })
+    end
+})
+
+-- Quick Titles
+TitlesTab:CreateButton({
+    Name = "Quick: Eminence in Shadow",
+    Callback = function()
+        setTitle("Eminence in Shadow")
+        Rayfield:Notify({Title="Success",Content="Title set!",Duration=3})
+    end
+})
+
+TitlesTab:CreateButton({
+    Name = "Quick: Shadow Monarch",
+    Callback = function()
+        setTitle("Shadow Monarch")
+        Rayfield:Notify({Title="Success",Content="Title set!",Duration=3})
+    end
+})
+
+TitlesTab:CreateButton({
+    Name = "Quick: Frost Empress",
+    Callback = function()
+        setTitle("Frost Empress")
+        Rayfield:Notify({Title="Success",Content="Title set!",Duration=3})
     end
 })
 
 -- Dupe Tab
 local DupeTab = Window:CreateTab("Dupe", 4483362458)
-
 local DupeItemName = ""
 local isDuping = false
 
@@ -274,24 +317,47 @@ DupeTab:CreateInput({
 DupeTab:CreateButton({
     Name = "Dupe (2x)",
     Callback = function()
-        if DupeItemName == "" or isDuping then return end
+        if DupeItemName == "" then
+            Rayfield:Notify({Title="Error",Content="Enter item!",Duration=3})
+            return
+        end
 
-        local items = {}
+        if isDuping then
+            Rayfield:Notify({Title="Error",Content="Already duping!",Duration=3})
+            return
+        end
+
+        local itemNames = {}
         for item in DupeItemName:gmatch("([^,]+)") do
-            table.insert(items, item:match("^%s*(.-)%s*$"))
+            table.insert(itemNames, item:match("^%s*(.-)%s*$"))
+        end
+
+        for _, name in ipairs(itemNames) do
+            if (fakeDict[name] or 0) <= 0 then
+                Rayfield:Notify({Title="Error",Content="You don't have "..name,Duration=3})
+                return
+            end
         end
 
         isDuping = true
+        Rayfield:Notify({Title="Duping...",Content="Please wait",Duration=5})
 
         task.spawn(function()
-            for _, name in ipairs(items) do
-                local current = fakeDict[name] or 0
-                for i = 1, current do
+            for _, name in ipairs(itemNames) do
+                local start = fakeDict[name]
+                for i = 1, start do
                     task.wait(0.1)
-                    fakeDict[name] = (fakeDict[name] or 0) + 1
+                    fakeDict[name] += 1
                 end
             end
+
             isDuping = false
+
+            Rayfield:Notify({
+                Title="Done!",
+                Content="Duplication complete",
+                Duration=5
+            })
         end)
     end
 })
