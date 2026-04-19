@@ -5,53 +5,20 @@ local bounty = leaderstats:WaitForChild("Bounty")
 
 local rs = game:GetService("ReplicatedStorage")
 local Remotes = rs:WaitForChild("Remotes")
-local RemoteEvents = rs:WaitForChild("RemoteEvents")
-local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
+local RemoteEvents = rs:GetService("RemoteEvents")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
 -- ================= GAME DATA =================
 local GAME_DATA = {
-    TITLES = {
-        "Dragon Slayer","Developer","Demon Lord","Novice","Strongest Sorcerer","Golden Tyrant",
-        "Santa's Helper","Champion","The One","Egg Seeker","Shadow Monarch","Co-Owner",
-        "Manipulator","Apprentice","Dragon Queen","Vampire King","Admin","King of Beginning",
-        "Soul Reaper","Six Eyed Demon","Blade Master","Void Empress","King of Shadows",
-        "Corrupt Tyrant","The Chosen One","Cupid's Chosen","Disgraced One","Founder",
-        "Blessed One","Cosmic Being","Domain Master","Curse King","Celestial Favor",
-        "Tester","Hoarder","Golden King","Lucky Star","Demon King","Treasure Hunter",
-        "Destiny Marked","Battlefield Warlord","Star Maiden","Warrior","Eminence Incarnate",
-        "Transcendent Being","Living Weapon","Astral Empress","King","Blade Sovereign",
-        "Fortune Seeker","Lucky Novice","Time Tyrant","Frost Empress","Contributor",
-        "Eminence in Shadow","Blessed Sovereign","Collector","Ancient Mage"
-    },
-
-    SWORDS = {
-        "Shadow","Ragna","Rimuru","Shadow Monarch","True Aizen","Dual Katana","Longsword",
-        "Aizen","Sword","Katana","Saber","Abyssal Empress","Dragon Goddess","Escanor",
-        "Ice Queen","Gryphon","Ichigo","KatanaSword","IceQueen","AbyssalEmpress",
-        "DragonGoddess","Great Mage","Dark Blade","Atomic","Cutlass","Yamato",
-        "TrueAizen","ShadowMonarch","GreatMage","Jinwoo"
-    },
-
-    MELEES = {
-        "Strongest Shinobi","StrongestOfToday","TheWorld","MoonSlayer","Gojo","Yuji",
-        "Brass Knuckles","Strongest Of Today","BlessedMaiden","Cosmic Being",
-        "Dragon Gauntlets","Combat","Gauntlets","Anos","SaberAlter","Alucard",
-        "Fists","Sukuna","StrongestInHistory","The World","CosmicBeing","Madoka",
-        "Qin Shi","Saber Alter","Moon Slayer","Gilgamesh","StrongestShinobi",
-        "Fighting Style","Blessed Maiden","Strongest In History"
-    }
+    SWORDS = {"Shadow","Ragna","Rimuru","Shadow Monarch","True Aizen","Dual Katana","Longsword","Aizen","Sword","Katana","Saber","Abyssal Empress","Dragon Goddess","Escanor","Ice Queen","Gryphon","Ichigo","KatanaSword","IceQueen","AbyssalEmpress","DragonGoddess","Great Mage","Dark Blade","Atomic","Cutlass","Yamato","TrueAizen","ShadowMonarch","GreatMage","Jinwoo"},
+    MELEES = {"Strongest Shinobi","StrongestOfToday","TheWorld","MoonSlayer","Gojo","Yuji","Brass Knuckles","Strongest Of Today","BlessedMaiden","Cosmic Being","Dragon Gauntlets","Combat","Gauntlets","Anos","SaberAlter","Alucard","Fists","Sukuna","StrongestInHistory","The World","CosmicBeing","Madoka","Qin Shi","Saber Alter","Moon Slayer","Gilgamesh","StrongestShinobi","Fighting Style","Blessed Maiden","Strongest In History"}
 }
 
 local function getItemType(name)
-    for _, v in ipairs(GAME_DATA.SWORDS) do
-        if v == name then return "Swords" end
-    end
-    for _, v in ipairs(GAME_DATA.MELEES) do
-        if v == name then return "Melee" end
-    end
+    for _, v in ipairs(GAME_DATA.SWORDS) do if v == name then return "Swords" end end
+    for _, v in ipairs(GAME_DATA.MELEES) do if v == name then return "Melee" end end
     return "Items"
 end
 
@@ -61,42 +28,14 @@ local isFiring = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
--- Store existing inventory on script start
-local existingInventory = {}
-local function storeExistingInventory()
-    for _, category in ipairs({"Items", "Swords", "Melee"}) do
-        local success, result = pcall(function()
-            return player:WaitForChild("Inventory"):WaitForChild(category):GetChildren()
-        end)
-        if success and result then
-            for _, item in ipairs(result) do
-                if item:IsA("Folder") and item:FindFirstChild("Count") then
-                    existingInventory[item.Name] = item.Count.Value
-                end
-            end
-        end
-    end
-end
-
-storeExistingInventory()
-
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     if isFiring or not items then return end
     if next(fakeDict) == nil then return end
-
     local now = tick()
     if now - lastFire < DEBOUNCE then return end
 
     task.spawn(function()
         local modified = false
-
-        -- First, ensure existing items are preserved
-        for name, qty in pairs(existingInventory) do
-            if not fakeDict[name] then
-                fakeDict[name] = qty
-            end
-        end
-
         for _, item in ipairs(items) do
             local fake = fakeDict[item.name]
             if fake and fake > item.quantity then
@@ -104,160 +43,77 @@ UpdateInventory.OnClientEvent:Connect(function(dataType, items)
                 modified = true
             end
         end
-
         for name, qty in pairs(fakeDict) do
             local found = false
-            for _, item in ipairs(items) do
-                if item.name == name then found = true break end
-            end
+            for _, item in ipairs(items) do if item.name == name then found = true break end end
             if not found then
-                table.insert(items, {
-                    name = name,
-                    quantity = qty,
-                    image = "rbxassetid://129120260132029"
-                })
+                table.insert(items, { name = name, quantity = qty, image = "rbxassetid://129120260132029" })
                 modified = true
             end
         end
-
         if modified then
             lastFire = tick()
             isFiring = true
-
             local categorized = {Items = {}, Swords = {}, Melee = {}}
-
             for _, item in ipairs(items) do
                 local t = getItemType(item.name)
                 table.insert(categorized[t], item)
             end
-
             for category, data in pairs(categorized) do
-                if #data > 0 then
-                    firesignal(UpdateInventory.OnClientEvent, category, data)
-                end
+                if #data > 0 then firesignal(UpdateInventory.OnClientEvent, category, data) end
             end
-
             isFiring = false
         end
     end)
 end)
 
+local function giveItem(itemName, amount)
+    fakeDict[itemName] = (fakeDict[itemName] or 0) + amount
+end
+
 -- ================= TITLES =================
 local fakeTitleData = nil
 local titleFiring = false
 
-TitleDataSync.OnClientEvent:Connect(function(data)
-    if titleFiring or not data then return end
-    if fakeTitleData then
-        task.spawn(function()
-            titleFiring = true
-            firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
-            titleFiring = false
-        end)
-    end
-end)
-
 local function setTitle(titleName)
-    local allUnlocked = {}
-
-    for _, t in ipairs(GAME_DATA.TITLES) do
-        table.insert(allUnlocked, t)
-    end
-
-    table.insert(allUnlocked, titleName)
-
-    fakeTitleData = {
-        unlocked = allUnlocked,
-        equipped = titleName,
-        progress = {},
-        titlePity = {}
-    }
-
+    local allUnlocked = {"Novice", "Apprentice", "Warrior", "Champion", "King", "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice", "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign", "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon", "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow", "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer", "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One", "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress", "King of Shadows", "Frost Empress", "The One", "Void Empress", "Shadow King", "Strongest Shinobi", "Santa's Helper", titleName}
+    fakeTitleData = {unlocked = allUnlocked, equipped = titleName, progress = {}, titlePity = {}}
     task.spawn(function()
         titleFiring = true
         firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
         titleFiring = false
-    end)
-
-    task.spawn(function()
         firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
     end)
 end
 
-local function giveItem(name, amount)
-    fakeDict[name] = (fakeDict[name] or 0) + amount
-end
-
 -- ================= UI =================
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
 
-local Window = Rayfield:CreateWindow({
-    Name = "Express Hub",
-    LoadingTitle = "Express Hub",
-    LoadingSubtitle = "Loading...",
-    Theme = "Default",
-    DisableRayfieldPrompts = true,
-    DisableBuildWarnings = true,
-})
-
--- Bounty Tab
 local BountyTab = Window:CreateTab("Bounty", 4483362458)
 local BountyValue = 0
+BountyTab:CreateSlider({Name = "Bounty Amount", Range = {0, 10000000}, Increment = 1000, CurrentValue = 0, Callback = function(v) BountyValue = v end})
+BountyTab:CreateButton({Name = "Set Bounty", Callback = function() bounty.Value = BountyValue end})
+BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
 
-BountyTab:CreateSlider({
-    Name = "Bounty",
-    Range = {0,10000000},
-    Increment = 1000,
-    CurrentValue = 0,
-    Callback = function(v) BountyValue = v end
-})
-
-BountyTab:CreateButton({
-    Name = "Set Bounty",
-    Callback = function()
-        bounty.Value = BountyValue
-    end
-})
-
-BountyTab:CreateButton({
-    Name = "Max Bounty",
-    Callback = function()
-        bounty.Value = 10000000
-    end
-})
-
--- Drops Tab
 local DropsTab = Window:CreateTab("Drops", 4483362458)
 local ItemName = ""
 local ItemAmount = 1
+DropsTab:CreateInput({Name = "Item Name", PlaceholderText = "e.g. Aura Crate", Callback = function(v) ItemName = v end})
+DropsTab:CreateSlider({Name = "Amount", Range = {1, 100}, Increment = 1, CurrentValue = 1, Callback = function(v) ItemAmount = v end})
+DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, ItemAmount) Rayfield:Notify({Title="Success",Content="Given "..ItemName,Duration=3}) end})
 
-DropsTab:CreateInput({
-    Name = "Item Name",
-    PlaceholderText = "Qin Shi / Yamato",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(v) ItemName = v end
-})
+local TitlesTab = Window:CreateTab("Titles", 4483362458)
+local TitleInput = ""
+TitlesTab:CreateInput({Name = "Title Name", PlaceholderText = "e.g. Eminence in Shadow", Callback = function(v) TitleInput = v end})
+TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
 
-DropsTab:CreateSlider({
-    Name = "Amount",
-    Range = {1,100},
-    Increment = 1,
-    CurrentValue = 1,
-    Flag = "ItemAmountSlider",
-    Callback = function(v) ItemAmount = v end
-})
-
-DropsTab:CreateButton({
-    Name = "Give Item",
-    Callback = function()
-        if ItemName == "" then
-            Rayfield:Notify({Title="Error",Content="Enter item!",Duration=3})
-            return
-        end
-
-        giveItem(ItemName, ItemAmount)
-
-        Rayfield:Notify({
-            Title="Success",
-            Content="Given "..ItemAmount.."x "..ItemName,
-           
+local DupeTab = Window:CreateTab("Dupe", 4483362458)
+local DupeItemName = ""
+DupeTab:CreateInput({Name = "Item Name(s)", PlaceholderText = "Aura Crate, Cosmetic Crate", Callback = function(v) DupeItemName = v end})
+DupeTab:CreateButton({Name = "Dupe (2x)", Callback = function()
+    local itemNames = {}
+    for item in DupeItemName:gmatch("([^,]+)") do table.insert(itemNames, item:match("^%s*(.-)%s*$")) end
+    for _, name in ipairs(itemNames) do if (fakeDict[name] or 0) > 0 then fakeDict[name] = fakeDict[name] * 2 end end
+    Rayfield:Notify({Title="Done!",Content="Items doubled!",Duration=5})
+end})
