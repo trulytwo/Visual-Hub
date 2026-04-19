@@ -10,61 +10,140 @@ local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
--- Data Configurations
-local Swords = {"Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen", "Dual Katana", "Longsword", "Aizen", "Sword", "Katana", "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor", "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "IceQueen", "AbyssalEmpress", "DragonGoddess", "Great Mage", "Dark Blade", "Atomic", "Cutlass", "Yamato", "TrueAizen", "ShadowMonarch", "GreatMage", "Jinwoo"}
-local Melees = {"Strongest Shinobi", "StrongestOfToday", "TheWorld", "MoonSlayer", "Gojo", "Yuji", "Brass Knuckles", "Strongest Of Today", "BlessedMaiden", "Cosmic Being", "Dragon Gauntlets", "Combat", "Gauntlets", "Anos", "SaberAlter", "Alucard", "Fists", "Sukuna", "StrongestInHistory", "The World", "CosmicBeing", "Madoka", "Qin Shi", "Saber Alter", "Moon Slayer", "Gilgamesh", "StrongestShinobi", "Fighting Style", "Blessed Maiden", "Strongest In History"}
+-- Categorization Data
+local Data = {
+    Swords = {"Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen", "Dual Katana", "Longsword", "Aizen", "Sword", "Katana", "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor", "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "IceQueen", "AbyssalEmpress", "DragonGoddess", "Great Mage", "Dark Blade", "Atomic", "Cutlass", "Yamato", "TrueAizen", "ShadowMonarch", "GreatMage", "Jinwoo"},
+    Melees = {"Strongest Shinobi", "StrongestOfToday", "TheWorld", "MoonSlayer", "Gojo", "Yuji", "Brass Knuckles", "Strongest Of Today", "BlessedMaiden", "Cosmic Being", "Dragon Gauntlets", "Combat", "Gauntlets", "Anos", "SaberAlter", "Alucard", "Fists", "Sukuna", "StrongestInHistory", "The World", "CosmicBeing", "Madoka", "Qin Shi", "Saber Alter", "Moon Slayer", "Gilgamesh", "StrongestShinobi", "Fighting Style", "Blessed Maiden", "Strongest In History"},
+    Powers = {"Light", "Ice Fruit", "Dark Fruit", "Magma", "Magma Fruit", "Dark", "Light Fruit", "Flame Fruit", "Flame", "Dragon Fruit", "Ice"}
+}
 
-local allTitles = {"Dragon Slayer", "Developer", "Demon Lord", "Novice", "Strongest Sorcerer", "Golden Tyrant", "Santa's Helper", "Champion", "The One", "Egg Seeker", "Shadow Monarch", "Co-Owner", "Manipulator", "Apprentice", "Dragon Queen", "Vampire King", "Admin", "King of Beginning", "Soul Reaper", "Six Eyed Demon", "Blade Master", "Void Empress", "King of Shadows", "Corrupt Tyrant", "The Chosen One", "Cupid's Chosen", "Disgraced One", "Founder", "Blessed One", "Cosmic Being", "Domain Master", "Curse King", "Celestial Favor", "Tester", "Hoarder", "Golden King", "Lucky Star", "Demon King", "Treasure Hunter", "Destiny Marked", "Battlefield Warlord", "Star Maiden", "Warrior", "Eminence Incarnate", "Transcendent Being", "Living Weapon", "Astral Empress", "King", "Blade Sovereign", "Fortune Seeker", "Lucky Novice", "Time Tyrant", "Frost Empress", "Contributor", "Eminence in Shadow", "Blessed Sovereign", "Collector", "Ancient Mage"}
+local fakeInventory = {Items = {}, Swords = {}, Melees = {}, Powers = {}}
 
-local fakeDict = {}
-local isFiring = false
-
-local function isItemInList(name, list)
-    for _, v in ipairs(list) do if v == name then return true end end
-    return false
-end
-
--- Helper to Update Inventory
-local function refreshInventory()
-    isFiring = true
-    local items = {}
-    for name, qty in pairs(fakeDict) do
-        table.insert(items, { name = name, quantity = qty, image = "rbxassetid://129120260132029" })
+local function getCategory(name)
+    for cat, list in pairs(Data) do
+        if table.find(list, name) then return cat end
     end
-    firesignal(UpdateInventory.OnClientEvent, "Items", items)
-    isFiring = false
+    return "Items"
 end
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({Name = "Express Hub", Theme = "Default"})
+local function giveItem(itemName, amount)
+    local cat = getCategory(itemName)
+    fakeInventory[cat][itemName] = (fakeInventory[cat][itemName] or 0) + amount
+end
 
--- Drops/Inventory Tab
+-- Rayfield Setup
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
+
+-- Titles Logic
+local function setTitle(titleName)
+    local allUnlocked = {
+        "Dragon Slayer", "Developer", "Demon Lord", "Novice", "Strongest Sorcerer", "Golden Tyrant", "Santa's Helper", "Champion", 
+        "The One", "Egg Seeker", "Shadow Monarch", "Co-Owner", "Manipulator", "Apprentice", "Dragon Queen", "Vampire King", 
+        "Admin", "King of Beginning", "Soul Reaper", "Six Eyed Demon", "Blade Master", "Void Empress", "King of Shadows", 
+        "Corrupt Tyrant", "The Chosen One", "Cupid's Chosen", "Disgraced One", "Founder", "Blessed One", "Cosmic Being", 
+        "Domain Master", "Curse King", "Celestial Favor", "Tester", "Hoarder", "Golden King", "Lucky Star", "Demon King", 
+        "Treasure Hunter", "Destiny Marked", "Battlefield Warlord", "Star Maiden", "Warrior", "Eminence Incarnate", 
+        "Transcendent Being", "Living Weapon", "Astral Empress", "King", "Blade Sovereign", "Fortune Seeker", 
+        "Lucky Novice", "Time Tyrant", "Frost Empress", "Contributor", "Eminence in Shadow", "Blessed Sovereign", 
+        "Collector", "Ancient Mage", titleName
+    }
+    local fakeTitleData = {unlocked = allUnlocked, equipped = titleName, progress = {}, titlePity = {}}
+    firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+end
+
+-- Tabs
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
+
 local DropsTab = Window:CreateTab("Drops", 4483362458)
 local ItemName = ""
-local ItemAmount = 1
-
 DropsTab:CreateInput({Name = "Item Name", Callback = function(v) ItemName = v end})
-DropsTab:CreateSlider({Name = "Amount", Range = {1, 100}, Callback = function(v) ItemAmount = v end})
+DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, 1) Rayfield:Notify({Title="Success", Content="Given "..ItemName}) end})
 
-DropsTab:CreateButton({Name = "Give Item", Callback = function()
-    fakeDict[ItemName] = (fakeDict[ItemName] or 0) + ItemAmount
-    refreshInventory()
-    Rayfield:Notify({Title = "Success", Content = "Added " .. ItemName})
-end})
-
--- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
-TitlesTab:CreateButton({Name = "Unlock All Titles", Callback = function()
-    local fakeTitleData = {unlocked = allTitles, equipped = "God", progress = {}, titlePity = {}}
-    firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
-    Rayfield:Notify({Title = "Success", Content = "All titles unlocked visually."})
-end})
+local TitleInput = ""
+TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) TitleInput = v end})
+TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
 
--- Logic Hook for UI
+-- Hook UpdateInventory to keep it synchronized with visual fake inventory
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
-    if isFiring then return end
-    -- Logic to intercept and append your fakeDict items
-    for _, item in ipairs(items) do
-        fakeDict[item.name] = item.quantity
+    if not items then return end
+    -- Logic to merge your fakeInventory with real items would go here
+end)
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local leaderstats = player:WaitForChild("leaderstats")
+local bounty = leaderstats:WaitForChild("Bounty")
+
+local rs = game:GetService("ReplicatedStorage")
+local Remotes = rs:WaitForChild("Remotes")
+local RemoteEvents = rs:WaitForChild("RemoteEvents")
+local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
+local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
+local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
+
+-- Categorization Data
+local Data = {
+    Swords = {"Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen", "Dual Katana", "Longsword", "Aizen", "Sword", "Katana", "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor", "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "IceQueen", "AbyssalEmpress", "DragonGoddess", "Great Mage", "Dark Blade", "Atomic", "Cutlass", "Yamato", "TrueAizen", "ShadowMonarch", "GreatMage", "Jinwoo"},
+    Melees = {"Strongest Shinobi", "StrongestOfToday", "TheWorld", "MoonSlayer", "Gojo", "Yuji", "Brass Knuckles", "Strongest Of Today", "BlessedMaiden", "Cosmic Being", "Dragon Gauntlets", "Combat", "Gauntlets", "Anos", "SaberAlter", "Alucard", "Fists", "Sukuna", "StrongestInHistory", "The World", "CosmicBeing", "Madoka", "Qin Shi", "Saber Alter", "Moon Slayer", "Gilgamesh", "StrongestShinobi", "Fighting Style", "Blessed Maiden", "Strongest In History"},
+    Powers = {"Light", "Ice Fruit", "Dark Fruit", "Magma", "Magma Fruit", "Dark", "Light Fruit", "Flame Fruit", "Flame", "Dragon Fruit", "Ice"}
+}
+
+local fakeInventory = {Items = {}, Swords = {}, Melees = {}, Powers = {}}
+
+local function getCategory(name)
+    for cat, list in pairs(Data) do
+        if table.find(list, name) then return cat end
     end
+    return "Items"
+end
+
+local function giveItem(itemName, amount)
+    local cat = getCategory(itemName)
+    fakeInventory[cat][itemName] = (fakeInventory[cat][itemName] or 0) + amount
+end
+
+-- Rayfield Setup
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
+
+-- Titles Logic
+local function setTitle(titleName)
+    local allUnlocked = {
+        "Dragon Slayer", "Developer", "Demon Lord", "Novice", "Strongest Sorcerer", "Golden Tyrant", "Santa's Helper", "Champion", 
+        "The One", "Egg Seeker", "Shadow Monarch", "Co-Owner", "Manipulator", "Apprentice", "Dragon Queen", "Vampire King", 
+        "Admin", "King of Beginning", "Soul Reaper", "Six Eyed Demon", "Blade Master", "Void Empress", "King of Shadows", 
+        "Corrupt Tyrant", "The Chosen One", "Cupid's Chosen", "Disgraced One", "Founder", "Blessed One", "Cosmic Being", 
+        "Domain Master", "Curse King", "Celestial Favor", "Tester", "Hoarder", "Golden King", "Lucky Star", "Demon King", 
+        "Treasure Hunter", "Destiny Marked", "Battlefield Warlord", "Star Maiden", "Warrior", "Eminence Incarnate", 
+        "Transcendent Being", "Living Weapon", "Astral Empress", "King", "Blade Sovereign", "Fortune Seeker", 
+        "Lucky Novice", "Time Tyrant", "Frost Empress", "Contributor", "Eminence in Shadow", "Blessed Sovereign", 
+        "Collector", "Ancient Mage", titleName
+    }
+    local fakeTitleData = {unlocked = allUnlocked, equipped = titleName, progress = {}, titlePity = {}}
+    firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+end
+
+-- Tabs
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
+
+local DropsTab = Window:CreateTab("Drops", 4483362458)
+local ItemName = ""
+DropsTab:CreateInput({Name = "Item Name", Callback = function(v) ItemName = v end})
+DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, 1) Rayfield:Notify({Title="Success", Content="Given "..ItemName}) end})
+
+local TitlesTab = Window:CreateTab("Titles", 4483362458)
+local TitleInput = ""
+TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) TitleInput = v end})
+TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
+
+-- Hook UpdateInventory to keep it synchronized with visual fake inventory
+UpdateInventory.OnClientEvent:Connect(function(dataType, items)
+    if not items then return end
+    -- Logic to merge your fakeInventory with real items would go here
 end)
