@@ -6,144 +6,391 @@ local bounty = leaderstats:WaitForChild("Bounty")
 local rs = game:GetService("ReplicatedStorage")
 local Remotes = rs:WaitForChild("Remotes")
 local RemoteEvents = rs:WaitForChild("RemoteEvents")
+local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
--- Categorization Data
-local Data = {
-    Swords = {"Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen", "Dual Katana", "Longsword", "Aizen", "Sword", "Katana", "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor", "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "IceQueen", "AbyssalEmpress", "DragonGoddess", "Great Mage", "Dark Blade", "Atomic", "Cutlass", "Yamato", "TrueAizen", "ShadowMonarch", "GreatMage", "Jinwoo"},
-    Melees = {"Strongest Shinobi", "StrongestOfToday", "TheWorld", "MoonSlayer", "Gojo", "Yuji", "Brass Knuckles", "Strongest Of Today", "BlessedMaiden", "Cosmic Being", "Dragon Gauntlets", "Combat", "Gauntlets", "Anos", "SaberAlter", "Alucard", "Fists", "Sukuna", "StrongestInHistory", "The World", "CosmicBeing", "Madoka", "Qin Shi", "Saber Alter", "Moon Slayer", "Gilgamesh", "StrongestShinobi", "Fighting Style", "Blessed Maiden", "Strongest In History"},
-    Powers = {"Light", "Ice Fruit", "Dark Fruit", "Magma", "Magma Fruit", "Dark", "Light Fruit", "Flame Fruit", "Flame", "Dragon Fruit", "Ice"}
-}
+local fakeDict = {}
+local isFiring = false
+local lastFire = 0
+local DEBOUNCE = 0.5
 
-local fakeInventory = {Items = {}, Swords = {}, Melees = {}, Powers = {}}
-
-local function getCategory(name)
-    for cat, list in pairs(Data) do
-        if table.find(list, name) then return cat end
-    end
-    return "Items"
-end
-
-local function giveItem(itemName, amount)
-    local cat = getCategory(itemName)
-    fakeInventory[cat][itemName] = (fakeInventory[cat][itemName] or 0) + amount
-end
-
--- Rayfield Setup
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
-
--- Titles Logic
-local function setTitle(titleName)
-    local allUnlocked = {
-        "Dragon Slayer", "Developer", "Demon Lord", "Novice", "Strongest Sorcerer", "Golden Tyrant", "Santa's Helper", "Champion", 
-        "The One", "Egg Seeker", "Shadow Monarch", "Co-Owner", "Manipulator", "Apprentice", "Dragon Queen", "Vampire King", 
-        "Admin", "King of Beginning", "Soul Reaper", "Six Eyed Demon", "Blade Master", "Void Empress", "King of Shadows", 
-        "Corrupt Tyrant", "The Chosen One", "Cupid's Chosen", "Disgraced One", "Founder", "Blessed One", "Cosmic Being", 
-        "Domain Master", "Curse King", "Celestial Favor", "Tester", "Hoarder", "Golden King", "Lucky Star", "Demon King", 
-        "Treasure Hunter", "Destiny Marked", "Battlefield Warlord", "Star Maiden", "Warrior", "Eminence Incarnate", 
-        "Transcendent Being", "Living Weapon", "Astral Empress", "King", "Blade Sovereign", "Fortune Seeker", 
-        "Lucky Novice", "Time Tyrant", "Frost Empress", "Contributor", "Eminence in Shadow", "Blessed Sovereign", 
-        "Collector", "Ancient Mage", titleName
-    }
-    local fakeTitleData = {unlocked = allUnlocked, equipped = titleName, progress = {}, titlePity = {}}
-    firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
-    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
-end
-
--- Tabs
-local BountyTab = Window:CreateTab("Bounty", 4483362458)
-BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
-
-local DropsTab = Window:CreateTab("Drops", 4483362458)
-local ItemName = ""
-DropsTab:CreateInput({Name = "Item Name", Callback = function(v) ItemName = v end})
-DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, 1) Rayfield:Notify({Title="Success", Content="Given "..ItemName}) end})
-
-local TitlesTab = Window:CreateTab("Titles", 4483362458)
-local TitleInput = ""
-TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) TitleInput = v end})
-TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
-
--- Hook UpdateInventory to keep it synchronized with visual fake inventory
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
-    if not items then return end
-    -- Logic to merge your fakeInventory with real items would go here
+    if isFiring or dataType ~= "Items" or not items then return end
+    if next(fakeDict) == nil then return end
+    local now = tick()
+    if now - lastFire < DEBOUNCE then return end
+    task.spawn(function()
+        local modified = false
+        for _, item in ipairs(items) do
+            local fake = fakeDict[item.name]
+            if fake and fake > item.quantity then
+                item.quantity = fake
+                modified = true
+            end
+        end
+        for name, qty in pairs(fakeDict) do
+            local found = false
+            for _, item in ipairs(items) do
+                if item.name == name then found = true break end
+            end
+            if not found then
+                table.insert(items, { name = name, quantity = qty, image = "rbxassetid://129120260132029" })
+                modified = true
+            end
+        end
+        if modified then
+            lastFire = tick()
+            isFiring = true
+            firesignal(UpdateInventory.OnClientEvent, "Items", items)
+            isFiring = false
+        end
+    end)
 end)
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local leaderstats = player:WaitForChild("leaderstats")
-local bounty = leaderstats:WaitForChild("Bounty")
+local fakeTitleData = nil
+local titleFiring = false
 
-local rs = game:GetService("ReplicatedStorage")
-local Remotes = rs:WaitForChild("Remotes")
-local RemoteEvents = rs:WaitForChild("RemoteEvents")
-local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
-local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
-local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
-
--- Categorization Data
-local Data = {
-    Swords = {"Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen", "Dual Katana", "Longsword", "Aizen", "Sword", "Katana", "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor", "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "IceQueen", "AbyssalEmpress", "DragonGoddess", "Great Mage", "Dark Blade", "Atomic", "Cutlass", "Yamato", "TrueAizen", "ShadowMonarch", "GreatMage", "Jinwoo"},
-    Melees = {"Strongest Shinobi", "StrongestOfToday", "TheWorld", "MoonSlayer", "Gojo", "Yuji", "Brass Knuckles", "Strongest Of Today", "BlessedMaiden", "Cosmic Being", "Dragon Gauntlets", "Combat", "Gauntlets", "Anos", "SaberAlter", "Alucard", "Fists", "Sukuna", "StrongestInHistory", "The World", "CosmicBeing", "Madoka", "Qin Shi", "Saber Alter", "Moon Slayer", "Gilgamesh", "StrongestShinobi", "Fighting Style", "Blessed Maiden", "Strongest In History"},
-    Powers = {"Light", "Ice Fruit", "Dark Fruit", "Magma", "Magma Fruit", "Dark", "Light Fruit", "Flame Fruit", "Flame", "Dragon Fruit", "Ice"}
-}
-
-local fakeInventory = {Items = {}, Swords = {}, Melees = {}, Powers = {}}
-
-local function getCategory(name)
-    for cat, list in pairs(Data) do
-        if table.find(list, name) then return cat end
+TitleDataSync.OnClientEvent:Connect(function(data)
+    if titleFiring or not data then return end
+    if fakeTitleData then
+        task.spawn(function()
+            titleFiring = true
+            firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+            titleFiring = false
+        end)
     end
-    return "Items"
-end
+end)
 
 local function giveItem(itemName, amount)
-    local cat = getCategory(itemName)
-    fakeInventory[cat][itemName] = (fakeInventory[cat][itemName] or 0) + amount
+    fakeDict[itemName] = (fakeDict[itemName] or 0) + amount
 end
 
--- Rayfield Setup
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({Name = "Express Hub", LoadingTitle = "Express Hub", LoadingSubtitle = "Loading...", Theme = "Default", DisableRayfieldPrompts = true, DisableBuildWarnings = true})
-
--- Titles Logic
 local function setTitle(titleName)
     local allUnlocked = {
-        "Dragon Slayer", "Developer", "Demon Lord", "Novice", "Strongest Sorcerer", "Golden Tyrant", "Santa's Helper", "Champion", 
-        "The One", "Egg Seeker", "Shadow Monarch", "Co-Owner", "Manipulator", "Apprentice", "Dragon Queen", "Vampire King", 
-        "Admin", "King of Beginning", "Soul Reaper", "Six Eyed Demon", "Blade Master", "Void Empress", "King of Shadows", 
-        "Corrupt Tyrant", "The Chosen One", "Cupid's Chosen", "Disgraced One", "Founder", "Blessed One", "Cosmic Being", 
-        "Domain Master", "Curse King", "Celestial Favor", "Tester", "Hoarder", "Golden King", "Lucky Star", "Demon King", 
-        "Treasure Hunter", "Destiny Marked", "Battlefield Warlord", "Star Maiden", "Warrior", "Eminence Incarnate", 
-        "Transcendent Being", "Living Weapon", "Astral Empress", "King", "Blade Sovereign", "Fortune Seeker", 
-        "Lucky Novice", "Time Tyrant", "Frost Empress", "Contributor", "Eminence in Shadow", "Blessed Sovereign", 
-        "Collector", "Ancient Mage", titleName
+        "Novice", "Apprentice", "Warrior", "Champion", "King",
+        "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
+        "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
+        "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon",
+        "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow",
+        "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer",
+        "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One",
+        "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress",
+        "King of Shadows", "Frost Empress", "The One", "Void Empress",
+        "Shadow King", "Strongest Shinobi", "Santa's Helper", titleName
     }
-    local fakeTitleData = {unlocked = allUnlocked, equipped = titleName, progress = {}, titlePity = {}}
-    firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
-    firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+
+    local seen = {}
+    local unlocked = {}
+    for _, t in ipairs(allUnlocked) do
+        if not seen[t] then
+            seen[t] = true
+            table.insert(unlocked, t)
+        end
+    end
+
+    fakeTitleData = {
+        unlocked = unlocked,
+        equipped = titleName,
+        progress = {},
+        titlePity = {}
+    }
+
+    task.spawn(function()
+        titleFiring = true
+        firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+        titleFiring = false
+    end)
+
+    task.spawn(function()
+        firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+    end)
 end
 
--- Tabs
-local BountyTab = Window:CreateTab("Bounty", 4483362458)
-BountyTab:CreateButton({Name = "Max Bounty", Callback = function() bounty.Value = 10000000 end})
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+local Window = Rayfield:CreateWindow({
+    Name = "Express Hub",
+    LoadingTitle = "Express Hub",
+    LoadingSubtitle = "Loading...",
+    Theme = "Default",
+    DisableRayfieldPrompts = true,
+    DisableBuildWarnings = true,
+})
+
+-- Bounty Tab
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+local BountyValue = 0
+
+BountyTab:CreateParagraph({
+    Title = "Bounty Changer",
+    Content = "Change your bounty."
+})
+
+BountyTab:CreateSlider({
+    Name = "Bounty Amount",
+    Range = {0, 10000000},
+    Increment = 1000,
+    CurrentValue = 0,
+    Flag = "BountySlider",
+    Callback = function(value)
+        BountyValue = value
+    end,
+})
+
+BountyTab:CreateButton({
+    Name = "Set Bounty",
+    Callback = function()
+        bounty.Value = BountyValue
+    end,
+})
+
+BountyTab:CreateButton({
+    Name = "Max Bounty",
+    Callback = function()
+        bounty.Value = 10000000
+    end,
+})
+
+-- Drops Tab
 local DropsTab = Window:CreateTab("Drops", 4483362458)
 local ItemName = ""
-DropsTab:CreateInput({Name = "Item Name", Callback = function(v) ItemName = v end})
-DropsTab:CreateButton({Name = "Give Item", Callback = function() giveItem(ItemName, 1) Rayfield:Notify({Title="Success", Content="Given "..ItemName}) end})
+local ItemAmount = 1
 
+DropsTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Press Give Item then open your inventory to see changes!"
+})
+
+DropsTab:CreateInput({
+    Name = "Item Name",
+    PlaceholderText = "e.g. Aura Crate",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        ItemName = value
+    end,
+})
+
+DropsTab:CreateSlider({
+    Name = "Amount",
+    Range = {1, 100},
+    Increment = 1,
+    CurrentValue = 1,
+    Flag = "ItemAmountSlider",
+    Callback = function(value)
+        ItemAmount = value
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Give Item",
+    Callback = function()
+        if ItemName == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
+            return
+        end
+        task.spawn(function() giveItem(ItemName, ItemAmount) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Aura Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Aura Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Cosmetic Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
+    end,
+})
+
+-- Titles Tab
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
 local TitleInput = ""
-TitlesTab:CreateInput({Name = "Title Name", Callback = function(v) TitleInput = v end})
-TitlesTab:CreateButton({Name = "Set Title", Callback = function() setTitle(TitleInput) end})
 
--- Hook UpdateInventory to keep it synchronized with visual fake inventory
-UpdateInventory.OnClientEvent:Connect(function(dataType, items)
-    if not items then return end
-    -- Logic to merge your fakeInventory with real items would go here
-end)
+TitlesTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Type any title name exactly and press Set Title. Works for locked titles too!"
+})
+
+TitlesTab:CreateInput({
+    Name = "Title Name",
+    PlaceholderText = "e.g. Eminence in Shadow",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        TitleInput = value
+    end,
+})
+
+TitlesTab:CreateButton({
+    Name = "Set Title",
+    Callback = function()
+        if TitleInput == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter a title name!", Duration = 3 })
+            return
+        end
+        task.spawn(function() setTitle(TitleInput) end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. TitleInput, Duration = 3 })
+    end,
+})
+
+TitlesTab:CreateButton({
+    Name = "Quick: Eminence in Shadow",
+    Callback = function()
+        task.spawn(function() setTitle("Eminence in Shadow") end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
+    end,
+})
+
+TitlesTab:CreateButton({
+    Name = "Quick: Shadow Monarch",
+    Callback = function()
+        task.spawn(function() setTitle("Shadow Monarch") end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
+    end,
+})
+
+TitlesTab:CreateButton({
+    Name = "Quick: Frost Empress",
+    Callback = function()
+        task.spawn(function() setTitle("Frost Empress") end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set!", Duration = 3 })
+    end,
+})
+
+-- Dupe Tab
+local DupeTab = Window:CreateTab("Dupe", 4483362458)
+local DupeItemName = ""
+local isDuping = false
+
+DupeTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Type item name(s) and press Dupe. Items will be doubled over time. Use commas to dupe multiple items at once (e.g. Aura Crate, Cosmetic Crate)"
+})
+
+DupeTab:CreateInput({
+    Name = "Item Name(s)",
+    PlaceholderText = "e.g. Aura Crate or Aura Crate, Cosmetic Crate",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        DupeItemName = value
+    end,
+})
+
+DupeTab:CreateButton({
+    Name = "Dupe (2x)",
+    Callback = function()
+        if DupeItemName == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter item name(s)! Use commas to separate.", Duration = 3 })
+            return
+        end
+        if isDuping then
+            Rayfield:Notify({ Title = "Error", Content = "Already duping! Please wait.", Duration = 3 })
+            return
+        end
+
+        -- Split input by comma and trim whitespace
+        local itemNames = {}
+        for item in DupeItemName:gmatch("([^,]+)") do
+            local trimmed = item:match("^%s*(.-)%s*$")
+            if trimmed ~= "" then
+                table.insert(itemNames, trimmed)
+            end
+        end
+
+        if #itemNames == 0 then
+            Rayfield:Notify({ Title = "Error", Content = "Enter item name(s)!", Duration = 3 })
+            return
+        end
+
+        -- Validate all items exist
+        for _, itemName in ipairs(itemNames) do
+            if (fakeDict[itemName] or 0) <= 0 then
+                Rayfield:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
+                return
+            end
+        end
+
+        local estimatedTime = math.random(30, 35)
+        isDuping = true
+
+        Rayfield:Notify({
+            Title = "Duping " .. #itemNames .. " item(s)",
+            Content = "Estimated time: " .. estimatedTime .. "s",
+            Duration = 5
+        })
+
+        task.spawn(function()
+            -- Store initial amounts for all items
+            local itemData = {}
+            for _, itemName in ipairs(itemNames) do
+                itemData[itemName] = {
+                    current = fakeDict[itemName],
+                    target = fakeDict[itemName] * 2
+                }
+            end
+
+            local totalIncreases = 0
+            for _, data in pairs(itemData) do
+                totalIncreases = totalIncreases + (data.target - data.current)
+            end
+
+            local interval = estimatedTime / totalIncreases
+
+            -- Dupe all items simultaneously
+            local allDone = false
+            while not allDone do
+                allDone = true
+                for _, itemName in ipairs(itemNames) do
+                    if fakeDict[itemName] < itemData[itemName].target then
+                        task.wait(interval)
+                        fakeDict[itemName] = (fakeDict[itemName] or 0) + 1
+                        allDone = false
+
+                        -- Update inventory every 5 items so it feels natural
+                        if (fakeDict[itemName] - itemData[itemName].current) % 5 == 0 then
+                            isFiring = true
+                            local items = {}
+                            for name, qty in pairs(fakeDict) do
+                                table.insert(items, {
+                                    name = name,
+                                    quantity = qty,
+                                    image = "rbxassetid://129120260132029"
+                                })
+                            end
+                            firesignal(UpdateInventory.OnClientEvent, "Items", items)
+                            isFiring = false
+                        end
+                    end
+                end
+            end
+
+            -- Final update
+            isFiring = true
+            local items = {}
+            for name, qty in pairs(fakeDict) do
+                table.insert(items, {
+                    name = name,
+                    quantity = qty,
+                    image = "rbxassetid://129120260132029"
+                })
+            end
+            firesignal(UpdateInventory.OnClientEvent, "Items", items)
+            isFiring = false
+
+            isDuping = false
+            Rayfield:Notify({
+                Title = "Dupe Complete!",
+                Content = #itemNames .. " item(s) duped successfully!",
+                Duration = 5
+            })
+        end)
+    end,
+})
