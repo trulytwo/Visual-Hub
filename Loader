@@ -223,7 +223,7 @@ BountyTab:CreateParagraph({
 
 BountyTab:CreateSlider({
     Name = "Bounty Amount",
-    Range = {0, 10000000},
+    Range = {0, 50000000},
     Increment = 1000,
     CurrentValue = 0,
     Flag = "BountySlider",
@@ -242,7 +242,7 @@ BountyTab:CreateButton({
 BountyTab:CreateButton({
     Name = "Max Bounty",
     Callback = function()
-        bounty.Value = 10000000
+        bounty.Value = 50000000
     end,
 })
 
@@ -283,6 +283,73 @@ DropsTab:CreateButton({
         end
         task.spawn(function() giveItem(ItemName, ItemAmount) end)
         Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
+    end,
+})
+
+DropsTab:CreateParagraph({
+    Title = "Quick Buttons",
+    Content = "Quick give common items!"
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Aura Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Aura Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Cosmetic Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: 2xLuck Product x1",
+    Callback = function()
+        task.spawn(function() giveItem("2xLuck Product", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given 2xLuck Product!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Madoka Set",
+    Callback = function()
+        local madokaSet = {
+            { "Pink Gem", 1 },
+            { "Radiant Core", 3 },
+            { "Sacred Bow", 5 },
+            { "Heart", 100 },
+            { "Divine Fragment", 8 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(madokaSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Madoka Set", Content = "Given all Madoka Set items!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Dio Set",
+    Callback = function()
+        local dioSet = {
+            { "Vampire Omen", 2 },
+            { "World Core", 6 },
+            { "Time Remnant", 12 },
+            { "Dominion Brand", 80 },
+            { "Power Fragment", 20 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(dioSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Dio Set", Content = "Given all Dio Set items!", Duration = 3 })
     end,
 })
 
