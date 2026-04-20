@@ -526,7 +526,7 @@ AutoDupeTab:CreateToggle({
                         fakeMelees[name] = qty * 2
                     end
                     pushInventory()
-                    task.wait(1)
+                    task.wait(2)
                 end
             end)
         else
