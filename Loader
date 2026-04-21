@@ -244,10 +244,16 @@ local TxtLabel = InfoHolder:WaitForChild("Txt")
 
 local currentConfirmItem = nil
 
-for _, v in pairs(ConfirmUI:GetDescendants()) do
-    if v:IsA("LocalScript") then
-        v.Disabled = true
-    end
+-- Disconnect both original Yes button handlers
+local cons = getconnections(YesButton.MouseButton1Click)
+for _, con in ipairs(cons) do
+    con:Disable()
+end
+
+-- Disconnect both original No button handlers
+local noCons = getconnections(NoButton.MouseButton1Click)
+for _, con in ipairs(noCons) do
+    con:Disable()
 end
 
 MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
