@@ -8,6 +8,7 @@ local Remotes = rs:WaitForChild("Remotes")
 local RemoteEvents = rs:WaitForChild("RemoteEvents")
 local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
+local ShowNotification = Remotes:WaitForChild("ShowNotification")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
@@ -160,22 +161,6 @@ TitleDataSync.OnClientEvent:Connect(function(data)
     end
 end)
 
-local function giveItem(itemName, amount)
-    if SWORD_SET[itemName] then
-        fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
-    elseif MELEE_SET[itemName] then
-        fakeMelees[itemName] = (fakeMelees[itemName] or 0) + amount
-    else
-        fakeItems[itemName] = (fakeItems[itemName] or 0) + amount
-    end
-    task.spawn(function()
-        firesignal(NotifyItemDrop.OnClientEvent, {
-            isBulk = true,
-            items = { [itemName] = amount }
-        })
-    end)
-end
-
 local function pushInventory()
     if next(fakeItems) ~= nil then
         local items = {}
@@ -206,6 +191,22 @@ local function pushInventory()
     end
 end
 
+local function giveItem(itemName, amount)
+    if SWORD_SET[itemName] then
+        fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
+    elseif MELEE_SET[itemName] then
+        fakeMelees[itemName] = (fakeMelees[itemName] or 0) + amount
+    else
+        fakeItems[itemName] = (fakeItems[itemName] or 0) + amount
+    end
+    task.spawn(function()
+        firesignal(NotifyItemDrop.OnClientEvent, {
+            isBulk = true,
+            items = { [itemName] = amount }
+        })
+    end)
+end
+
 local function setTitle(titleName)
     local seen = {}
     local unlocked = {}
@@ -230,6 +231,69 @@ local function setTitle(titleName)
         firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
     end)
 end
+
+-- Hook ConfirmUI Yes button
+local playerGui = player:WaitForChild("PlayerGui")
+local ConfirmUI = playerGui:WaitForChild("ConfirmUI")
+local MainFrame = ConfirmUI:WaitForChild("MainFrame")
+local ButtonsHolder = MainFrame:WaitForChild("ButtonsHolder")
+local InfoHolder = MainFrame:WaitForChild("InfoHolder")
+local YesButton = ButtonsHolder:WaitForChild("Yes")
+local NoButton = ButtonsHolder:WaitForChild("No")
+local TxtLabel = InfoHolder:WaitForChild("Txt")
+
+local currentConfirmItem = nil
+
+for _, v in pairs(ConfirmUI:GetDescendants()) do
+    if v:IsA("LocalScript") then
+        v.Disabled = true
+    end
+end
+
+MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+    if MainFrame.Visible then
+        task.wait(0.1)
+        local txt = TxtLabel.Text
+        currentConfirmItem = nil
+        for name, _ in pairs(fakeItems) do
+            if txt:find(name, 1, true) then
+                currentConfirmItem = name
+                break
+            end
+        end
+    else
+        currentConfirmItem = nil
+    end
+end)
+
+YesButton.MouseButton1Click:Connect(function()
+    if not currentConfirmItem then return end
+    local itemName = currentConfirmItem
+
+    if fakeItems[itemName] and fakeItems[itemName] > 0 then
+        fakeItems[itemName] = fakeItems[itemName] - 1
+        if fakeItems[itemName] <= 0 then fakeItems[itemName] = nil end
+
+        task.spawn(function()
+            firesignal(ShowNotification.OnClientEvent, "Quest", {
+                message = itemName .. " Activated!"
+            })
+        end)
+
+        task.spawn(function()
+            task.wait(0.1)
+            pushInventory()
+        end)
+
+        MainFrame.Visible = false
+        currentConfirmItem = nil
+    end
+end)
+
+NoButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    currentConfirmItem = nil
+end)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -502,7 +566,7 @@ local isAutoDuping = false
 
 AutoDupeTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Toggle on to automatically dupe your entire inventory every second."
+    Content = "Toggle on to automatically dupe your entire inventory every 2 seconds."
 })
 
 AutoDupeTab:CreateToggle({
@@ -511,9 +575,8 @@ AutoDupeTab:CreateToggle({
     Flag = "AutoDupeToggle",
     Callback = function(value)
         isAutoDuping = value
-
         if value then
-            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every second.", Duration = 3 })
+            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every 2 seconds.", Duration = 3 })
             task.spawn(function()
                 while isAutoDuping do
                     for name, qty in pairs(fakeItems) do
