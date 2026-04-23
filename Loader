@@ -8,6 +8,7 @@ local Remotes = rs:WaitForChild("Remotes")
 local RemoteEvents = rs:WaitForChild("RemoteEvents")
 local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
 local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
+local ShowNotification = Remotes:WaitForChild("ShowNotification")
 local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
 local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
 
@@ -160,22 +161,6 @@ TitleDataSync.OnClientEvent:Connect(function(data)
     end
 end)
 
-local function giveItem(itemName, amount)
-    if SWORD_SET[itemName] then
-        fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
-    elseif MELEE_SET[itemName] then
-        fakeMelees[itemName] = (fakeMelees[itemName] or 0) + amount
-    else
-        fakeItems[itemName] = (fakeItems[itemName] or 0) + amount
-    end
-    task.spawn(function()
-        firesignal(NotifyItemDrop.OnClientEvent, {
-            isBulk = true,
-            items = { [itemName] = amount }
-        })
-    end)
-end
-
 local function pushInventory()
     if next(fakeItems) ~= nil then
         local items = {}
@@ -206,6 +191,22 @@ local function pushInventory()
     end
 end
 
+local function giveItem(itemName, amount)
+    if SWORD_SET[itemName] then
+        fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
+    elseif MELEE_SET[itemName] then
+        fakeMelees[itemName] = (fakeMelees[itemName] or 0) + amount
+    else
+        fakeItems[itemName] = (fakeItems[itemName] or 0) + amount
+    end
+    task.spawn(function()
+        firesignal(NotifyItemDrop.OnClientEvent, {
+            isBulk = true,
+            items = { [itemName] = amount }
+        })
+    end)
+end
+
 local function setTitle(titleName)
     local seen = {}
     local unlocked = {}
@@ -230,6 +231,90 @@ local function setTitle(titleName)
         firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
     end)
 end
+
+-- Hook OpenShopProductConfirm to intercept fake product usage
+-- Wait for UsableItemClient to set up _G functions first
+task.spawn(function()
+    repeat task.wait(0.1) until _G.OpenShopProductConfirm ~= nil
+    print("Hooking OpenShopProductConfirm!")
+
+    local originalShopConfirm = _G.OpenShopProductConfirm
+
+    _G.OpenShopProductConfirm = function(itemName)
+        -- Check if it's a fake item we gave
+        if fakeItems[itemName] and fakeItems[itemName] > 0 then
+            -- Show our own confirm UI manually
+            local playerGui = player:WaitForChild("PlayerGui")
+            local ConfirmUI = playerGui:WaitForChild("ConfirmUI")
+            local MainFrame = ConfirmUI:WaitForChild("MainFrame")
+            local ButtonsHolder = MainFrame:WaitForChild("ButtonsHolder")
+            local InfoHolder = MainFrame:WaitForChild("InfoHolder")
+            local YesButton = ButtonsHolder:WaitForChild("Yes")
+            local NoButton = ButtonsHolder:WaitForChild("No")
+            local InputFrame = ButtonsHolder:WaitForChild("Input")
+            local TxtLabel = InfoHolder:WaitForChild("Txt")
+
+            TxtLabel.Text = itemName .. " - Are you sure?"
+            InputFrame.Visible = false
+            ConfirmUI.Enabled = true
+            MainFrame.Visible = true
+
+            -- Disconnect existing connections temporarily
+            local yesCons = getconnections(YesButton.MouseButton1Click)
+            local noCons = getconnections(NoButton.MouseButton1Click)
+            for _, c in ipairs(yesCons) do c:Disable() end
+            for _, c in ipairs(noCons) do c:Disable() end
+
+            local yesConn, noConn
+
+            yesConn = YesButton.MouseButton1Click:Connect(function()
+                yesConn:Disconnect()
+                noConn:Disconnect()
+
+                -- Re-enable original connections
+                for _, c in ipairs(yesCons) do c:Enable() end
+                for _, c in ipairs(noCons) do c:Enable() end
+
+                -- Use the item
+                fakeItems[itemName] = fakeItems[itemName] - 1
+                if fakeItems[itemName] <= 0 then fakeItems[itemName] = nil end
+
+                -- Show activated notification
+                task.spawn(function()
+                    firesignal(ShowNotification.OnClientEvent, "Quest", {
+                        message = itemName .. " Activated!"
+                    })
+                end)
+
+                -- Update inventory
+                task.spawn(function()
+                    task.wait(0.1)
+                    pushInventory()
+                end)
+
+                ConfirmUI.Enabled = false
+                MainFrame.Visible = false
+            end)
+
+            noConn = NoButton.MouseButton1Click:Connect(function()
+                yesConn:Disconnect()
+                noConn:Disconnect()
+
+                -- Re-enable original connections
+                for _, c in ipairs(yesCons) do c:Enable() end
+                for _, c in ipairs(noCons) do c:Enable() end
+
+                ConfirmUI.Enabled = false
+                MainFrame.Visible = false
+            end)
+        else
+            -- Not our fake item, call original
+            originalShopConfirm(itemName)
+        end
+    end
+
+    print("Hook successful!")
+end)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -502,7 +587,7 @@ local isAutoDuping = false
 
 AutoDupeTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Toggle on to automatically dupe your entire inventory every second."
+    Content = "Toggle on to automatically dupe your entire inventory every 2 seconds."
 })
 
 AutoDupeTab:CreateToggle({
@@ -511,9 +596,8 @@ AutoDupeTab:CreateToggle({
     Flag = "AutoDupeToggle",
     Callback = function(value)
         isAutoDuping = value
-
         if value then
-            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every second.", Duration = 3 })
+            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every 2 seconds.", Duration = 3 })
             task.spawn(function()
                 while isAutoDuping do
                     for name, qty in pairs(fakeItems) do
