@@ -232,88 +232,75 @@ local function setTitle(titleName)
     end)
 end
 
--- Hook OpenShopProductConfirm to intercept fake product usage
--- Wait for UsableItemClient to set up _G functions first
+local function handleFakeProduct(itemName)
+    local playerGui = player:WaitForChild("PlayerGui")
+    local ConfirmUI = playerGui:WaitForChild("ConfirmUI")
+    local MainFrame = ConfirmUI:WaitForChild("MainFrame")
+    local ButtonsHolder = MainFrame:WaitForChild("ButtonsHolder")
+    local InfoHolder = MainFrame:WaitForChild("InfoHolder")
+    local YesButton = ButtonsHolder:WaitForChild("Yes")
+    local NoButton = ButtonsHolder:WaitForChild("No")
+    local InputFrame = ButtonsHolder:WaitForChild("Input")
+    local TxtLabel = InfoHolder:WaitForChild("Txt")
+
+    TxtLabel.Text = itemName .. " - Are you sure?"
+    InputFrame.Visible = false
+    ConfirmUI.Enabled = true
+    MainFrame.Visible = true
+
+    local yesCons = getconnections(YesButton.MouseButton1Click)
+    local noCons = getconnections(NoButton.MouseButton1Click)
+    for _, c in ipairs(yesCons) do c:Disable() end
+    for _, c in ipairs(noCons) do c:Disable() end
+
+    local yesConn, noConn
+
+    yesConn = YesButton.MouseButton1Click:Connect(function()
+        yesConn:Disconnect()
+        noConn:Disconnect()
+        for _, c in ipairs(yesCons) do c:Enable() end
+        for _, c in ipairs(noCons) do c:Enable() end
+
+        fakeItems[itemName] = fakeItems[itemName] - 1
+        if fakeItems[itemName] <= 0 then fakeItems[itemName] = nil end
+
+        task.spawn(function()
+            firesignal(ShowNotification.OnClientEvent, "Quest", {
+                message = itemName .. " Activated!"
+            })
+        end)
+
+        task.spawn(function()
+            task.wait(0.1)
+            pushInventory()
+        end)
+
+        ConfirmUI.Enabled = false
+        MainFrame.Visible = false
+    end)
+
+    noConn = NoButton.MouseButton1Click:Connect(function()
+        yesConn:Disconnect()
+        noConn:Disconnect()
+        for _, c in ipairs(yesCons) do c:Enable() end
+        for _, c in ipairs(noCons) do c:Enable() end
+        ConfirmUI.Enabled = false
+        MainFrame.Visible = false
+    end)
+end
+
+-- Wait for _G.OpenShopProductConfirm then hook it
 task.spawn(function()
-    repeat task.wait(0.1) until _G.OpenShopProductConfirm ~= nil
-    print("Hooking OpenShopProductConfirm!")
-
-    local originalShopConfirm = _G.OpenShopProductConfirm
-
+    repeat task.wait(0.05) until type(_G.OpenShopProductConfirm) == "function"
+    local original = _G.OpenShopProductConfirm
     _G.OpenShopProductConfirm = function(itemName)
-        -- Check if it's a fake item we gave
         if fakeItems[itemName] and fakeItems[itemName] > 0 then
-            -- Show our own confirm UI manually
-            local playerGui = player:WaitForChild("PlayerGui")
-            local ConfirmUI = playerGui:WaitForChild("ConfirmUI")
-            local MainFrame = ConfirmUI:WaitForChild("MainFrame")
-            local ButtonsHolder = MainFrame:WaitForChild("ButtonsHolder")
-            local InfoHolder = MainFrame:WaitForChild("InfoHolder")
-            local YesButton = ButtonsHolder:WaitForChild("Yes")
-            local NoButton = ButtonsHolder:WaitForChild("No")
-            local InputFrame = ButtonsHolder:WaitForChild("Input")
-            local TxtLabel = InfoHolder:WaitForChild("Txt")
-
-            TxtLabel.Text = itemName .. " - Are you sure?"
-            InputFrame.Visible = false
-            ConfirmUI.Enabled = true
-            MainFrame.Visible = true
-
-            -- Disconnect existing connections temporarily
-            local yesCons = getconnections(YesButton.MouseButton1Click)
-            local noCons = getconnections(NoButton.MouseButton1Click)
-            for _, c in ipairs(yesCons) do c:Disable() end
-            for _, c in ipairs(noCons) do c:Disable() end
-
-            local yesConn, noConn
-
-            yesConn = YesButton.MouseButton1Click:Connect(function()
-                yesConn:Disconnect()
-                noConn:Disconnect()
-
-                -- Re-enable original connections
-                for _, c in ipairs(yesCons) do c:Enable() end
-                for _, c in ipairs(noCons) do c:Enable() end
-
-                -- Use the item
-                fakeItems[itemName] = fakeItems[itemName] - 1
-                if fakeItems[itemName] <= 0 then fakeItems[itemName] = nil end
-
-                -- Show activated notification
-                task.spawn(function()
-                    firesignal(ShowNotification.OnClientEvent, "Quest", {
-                        message = itemName .. " Activated!"
-                    })
-                end)
-
-                -- Update inventory
-                task.spawn(function()
-                    task.wait(0.1)
-                    pushInventory()
-                end)
-
-                ConfirmUI.Enabled = false
-                MainFrame.Visible = false
-            end)
-
-            noConn = NoButton.MouseButton1Click:Connect(function()
-                yesConn:Disconnect()
-                noConn:Disconnect()
-
-                -- Re-enable original connections
-                for _, c in ipairs(yesCons) do c:Enable() end
-                for _, c in ipairs(noCons) do c:Enable() end
-
-                ConfirmUI.Enabled = false
-                MainFrame.Visible = false
-            end)
+            handleFakeProduct(itemName)
         else
-            -- Not our fake item, call original
-            originalShopConfirm(itemName)
+            original(itemName)
         end
     end
-
-    print("Hook successful!")
+    print("Express Hub: Hook ready!")
 end)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
