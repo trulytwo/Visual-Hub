@@ -305,7 +305,7 @@ BountyTab:CreateButton({
 })
 
 -- Items Tab
-local ItemsTab = Window:CreateTab("Items", 102386669276466)
+local ItemsTab = Window:CreateTab("Items", "rbxassetid://102386669276466")
 local ItemName = ""
 local ItemAmount = 1
 
@@ -361,7 +361,7 @@ ItemsTab:CreateButton({
 })
 
 -- Melee Tab
-local MeleeTab = Window:CreateTab("Melee", 136684663074775)
+local MeleeTab = Window:CreateTab("Melee", "rbxassetid://136684663074775")
 
 MeleeTab:CreateParagraph({
     Title = "Melee Spawner",
@@ -389,7 +389,7 @@ for _, meleeName in ipairs(MELEES) do
 end
 
 -- Sword Tab
-local SwordTab = Window:CreateTab("Sword", 118290667960937)
+local SwordTab = Window:CreateTab("Sword", "rbxassetid://118290667960937")
 
 SwordTab:CreateParagraph({
     Title = "Sword Spawner",
