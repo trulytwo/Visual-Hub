@@ -1,1 +1,536 @@
-a
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local leaderstats = player:WaitForChild("leaderstats")
+local bounty = leaderstats:WaitForChild("Bounty")
+
+local rs = game:GetService("ReplicatedStorage")
+local Remotes = rs:WaitForChild("Remotes")
+local RemoteEvents = rs:WaitForChild("RemoteEvents")
+local NotifyItemDrop = Remotes:WaitForChild("NotifyItemDrop")
+local UpdateInventory = Remotes:WaitForChild("UpdateInventory")
+local TitleDataSync = RemoteEvents:WaitForChild("TitleDataSync")
+local TitleChatSync = RemoteEvents:WaitForChild("TitleChatSync")
+
+local fakeItems = {}
+local fakeSwords = {}
+local fakeMelees = {}
+
+local isFiringItems = false
+local isFiringSwords = false
+local isFiringMelees = false
+local lastFire = 0
+local DEBOUNCE = 0.5
+
+local SWORDS = {
+    "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
+    "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
+    "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor",
+    "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "Great Mage",
+    "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo"
+}
+
+local MELEES = {
+    "Combat", "Fists", "Gauntlets", "Brass Knuckles", "Dragon Gauntlets",
+    "Fighting Style", "Gojo", "Yuji", "Sukuna", "Alucard",
+    "Saber Alter", "Anos", "Gilgamesh", "Madoka", "Qin Shi",
+    "Blessed Maiden", "Strongest Of Today", "Strongest In History",
+    "Strongest Shinobi", "Moon Slayer", "The World", "Cosmic Being"
+}
+
+local SWORD_SET = {}
+for _, v in ipairs(SWORDS) do SWORD_SET[v] = true end
+
+local MELEE_SET = {}
+for _, v in ipairs(MELEES) do MELEE_SET[v] = true end
+
+local ALL_TITLES = {
+    "Novice", "Apprentice", "Warrior", "Champion", "King",
+    "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
+    "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
+    "Celestial Favor", "Golden Tyrant", "Blade Master", "Living Weapon",
+    "Curse King", "Shadow Monarch", "Manipulator", "Eminence in Shadow",
+    "King of Beginning", "Vampire King", "Demon Lord", "Dragon Slayer",
+    "Blade Sovereign", "Star Maiden", "Strongest Sorcerer", "The Chosen One",
+    "Domain Master", "Eminence Incarnate", "Transcendent Being", "Astral Empress",
+    "King of Shadows", "Frost Empress", "The One", "Void Empress",
+    "Strongest Shinobi", "Santa's Helper", "Egg Seeker", "Dragon Queen",
+    "Soul Reaper", "Six Eyed Demon", "Corrupt Tyrant", "Cupid's Chosen",
+    "Disgraced One", "Cosmic Being", "Demon King", "Destiny Marked",
+    "Battlefield Warlord", "Time Tyrant", "Ancient Mage", "Golden King"
+}
+
+UpdateInventory.OnClientEvent:Connect(function(dataType, items)
+    if dataType == "Items" then
+        if isFiringItems then return end
+        if next(fakeItems) == nil then return end
+        local now = tick()
+        if now - lastFire < DEBOUNCE then return end
+        task.spawn(function()
+            local modified = false
+            for _, item in ipairs(items) do
+                local fake = fakeItems[item.name]
+                if fake and fake > item.quantity then
+                    item.quantity = fake
+                    modified = true
+                end
+            end
+            for name, qty in pairs(fakeItems) do
+                local found = false
+                for _, item in ipairs(items) do
+                    if item.name == name then found = true break end
+                end
+                if not found then
+                    table.insert(items, { name = name, quantity = qty, image = "rbxassetid://129120260132029" })
+                    modified = true
+                end
+            end
+            if modified then
+                lastFire = tick()
+                isFiringItems = true
+                firesignal(UpdateInventory.OnClientEvent, "Items", items)
+                isFiringItems = false
+            end
+        end)
+
+    elseif dataType == "Sword" then
+        if isFiringSwords then return end
+        if next(fakeSwords) == nil then return end
+        task.spawn(function()
+            local modified = false
+            for _, item in ipairs(items) do
+                local fake = fakeSwords[item.name]
+                if fake then item.quantity = fake modified = true end
+            end
+            for name, qty in pairs(fakeSwords) do
+                local found = false
+                for _, item in ipairs(items) do
+                    if item.name == name then found = true break end
+                end
+                if not found then
+                    table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+                    modified = true
+                end
+            end
+            if modified then
+                isFiringSwords = true
+                firesignal(UpdateInventory.OnClientEvent, "Sword", items)
+                isFiringSwords = false
+            end
+        end)
+
+    elseif dataType == "Melee" then
+        if isFiringMelees then return end
+        if next(fakeMelees) == nil then return end
+        task.spawn(function()
+            local modified = false
+            for _, item in ipairs(items) do
+                local fake = fakeMelees[item.name]
+                if fake then item.quantity = fake modified = true end
+            end
+            for name, qty in pairs(fakeMelees) do
+                local found = false
+                for _, item in ipairs(items) do
+                    if item.name == name then found = true break end
+                end
+                if not found then
+                    table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+                    modified = true
+                end
+            end
+            if modified then
+                isFiringMelees = true
+                firesignal(UpdateInventory.OnClientEvent, "Melee", items)
+                isFiringMelees = false
+            end
+        end)
+    end
+end)
+
+local fakeTitleData = nil
+local titleFiring = false
+
+TitleDataSync.OnClientEvent:Connect(function(data)
+    if titleFiring or not data then return end
+    if fakeTitleData then
+        task.spawn(function()
+            titleFiring = true
+            firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+            titleFiring = false
+        end)
+    end
+end)
+
+local function giveItem(itemName, amount)
+    if SWORD_SET[itemName] then
+        fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
+    elseif MELEE_SET[itemName] then
+        fakeMelees[itemName] = (fakeMelees[itemName] or 0) + amount
+    else
+        fakeItems[itemName] = (fakeItems[itemName] or 0) + amount
+    end
+    task.spawn(function()
+        firesignal(NotifyItemDrop.OnClientEvent, {
+            isBulk = true,
+            items = { [itemName] = amount }
+        })
+    end)
+end
+
+local function pushInventory()
+    if next(fakeItems) ~= nil then
+        local items = {}
+        for name, qty in pairs(fakeItems) do
+            table.insert(items, { name = name, quantity = qty, image = "rbxassetid://129120260132029" })
+        end
+        isFiringItems = true
+        firesignal(UpdateInventory.OnClientEvent, "Items", items)
+        isFiringItems = false
+    end
+    if next(fakeSwords) ~= nil then
+        local items = {}
+        for name, qty in pairs(fakeSwords) do
+            table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+        end
+        isFiringSwords = true
+        firesignal(UpdateInventory.OnClientEvent, "Sword", items)
+        isFiringSwords = false
+    end
+    if next(fakeMelees) ~= nil then
+        local items = {}
+        for name, qty in pairs(fakeMelees) do
+            table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+        end
+        isFiringMelees = true
+        firesignal(UpdateInventory.OnClientEvent, "Melee", items)
+        isFiringMelees = false
+    end
+end
+
+local function setTitle(titleName)
+    local seen = {}
+    local unlocked = {}
+    for _, t in ipairs(ALL_TITLES) do
+        if not seen[t] then
+            seen[t] = true
+            table.insert(unlocked, t)
+        end
+    end
+    fakeTitleData = {
+        unlocked = unlocked,
+        equipped = titleName,
+        progress = {},
+        titlePity = {}
+    }
+    task.spawn(function()
+        titleFiring = true
+        firesignal(TitleDataSync.OnClientEvent, fakeTitleData)
+        titleFiring = false
+    end)
+    task.spawn(function()
+        firesignal(TitleChatSync.OnClientEvent, "update", player.UserId, titleName)
+    end)
+end
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Express Hub",
+    LoadingTitle = "Express Hub",
+    LoadingSubtitle = "Loading...",
+    Theme = "Default",
+    DisableRayfieldPrompts = true,
+    DisableBuildWarnings = true,
+})
+
+-- Bounty Tab
+local BountyTab = Window:CreateTab("Bounty", 4483362458)
+local BountyValue = 0
+
+BountyTab:CreateParagraph({
+    Title = "Bounty Changer",
+    Content = "Change your bounty."
+})
+
+BountyTab:CreateSlider({
+    Name = "Bounty Amount",
+    Range = {0, 50000000},
+    Increment = 1000,
+    CurrentValue = 0,
+    Flag = "BountySlider",
+    Callback = function(value)
+        BountyValue = value
+    end,
+})
+
+BountyTab:CreateButton({
+    Name = "Set Bounty",
+    Callback = function()
+        bounty.Value = BountyValue
+    end,
+})
+
+BountyTab:CreateButton({
+    Name = "Max Bounty",
+    Callback = function()
+        bounty.Value = 50000000
+    end,
+})
+
+-- Drops Tab
+local DropsTab = Window:CreateTab("Drops", 4483362458)
+local ItemName = ""
+local ItemAmount = 1
+
+DropsTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Type an item name and amount then press Give Item. Swords and melees go to their correct inventory tabs!"
+})
+
+DropsTab:CreateInput({
+    Name = "Item Name",
+    PlaceholderText = "e.g. Aura Crate",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        ItemName = value
+    end,
+})
+
+DropsTab:CreateInput({
+    Name = "Amount",
+    PlaceholderText = "e.g. 10",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        ItemAmount = tonumber(value) or 1
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Give Item",
+    Callback = function()
+        if ItemName == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
+            return
+        end
+        task.spawn(function() giveItem(ItemName, ItemAmount) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
+    end,
+})
+
+DropsTab:CreateParagraph({
+    Title = "Quick Buttons",
+    Content = "Quick give common items!"
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Aura Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Aura Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: Cosmetic Crate x1",
+    Callback = function()
+        task.spawn(function() giveItem("Cosmetic Crate", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Quick: 2xLuck Product x1",
+    Callback = function()
+        task.spawn(function() giveItem("2xLuck Product", 1) end)
+        Rayfield:Notify({ Title = "Success", Content = "Given 2xLuck Product!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Madoka Set",
+    Callback = function()
+        local madokaSet = {
+            { "Pink Gem", 1 },
+            { "Radiant Core", 3 },
+            { "Sacred Bow", 5 },
+            { "Heart", 100 },
+            { "Divine Fragment", 8 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(madokaSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Madoka Set", Content = "Given all Madoka Set items!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Dio Set",
+    Callback = function()
+        local dioSet = {
+            { "Vampire Omen", 2 },
+            { "World Core", 6 },
+            { "Time Remnant", 12 },
+            { "Dominion Brand", 80 },
+            { "Power Fragment", 20 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(dioSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Dio Set", Content = "Given all Dio Set items!", Duration = 3 })
+    end,
+})
+
+-- Titles Tab
+local TitlesTab = Window:CreateTab("Titles", 4483362458)
+local TitleInput = ""
+
+TitlesTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Type any title name and press Set Title. Works for locked titles too!"
+})
+
+TitlesTab:CreateInput({
+    Name = "Title Name",
+    PlaceholderText = "e.g. Eminence in Shadow",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        TitleInput = value
+    end,
+})
+
+TitlesTab:CreateButton({
+    Name = "Set Title",
+    Callback = function()
+        if TitleInput == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter a title name!", Duration = 3 })
+            return
+        end
+        task.spawn(function() setTitle(TitleInput) end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. TitleInput, Duration = 3 })
+    end,
+})
+
+-- Dupe Tab
+local DupeTab = Window:CreateTab("Dupe", 4483362458)
+local DupeItemName = ""
+local isDuping = false
+
+DupeTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Type an item name and press Dupe. The item will be doubled over time."
+})
+
+DupeTab:CreateInput({
+    Name = "Item Name",
+    PlaceholderText = "e.g. Aura Crate",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value)
+        DupeItemName = value
+    end,
+})
+
+DupeTab:CreateButton({
+    Name = "Dupe (2x)",
+    Callback = function()
+        if DupeItemName == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
+            return
+        end
+        if isDuping then
+            Rayfield:Notify({ Title = "Error", Content = "Already duping! Please wait.", Duration = 3 })
+            return
+        end
+
+        local itemName = DupeItemName
+        local isSword = SWORD_SET[itemName]
+        local isMelee = MELEE_SET[itemName]
+        local currentAmount = fakeItems[itemName] or fakeSwords[itemName] or fakeMelees[itemName] or 0
+
+        if currentAmount <= 0 then
+            Rayfield:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
+            return
+        end
+
+        local targetAmount = currentAmount * 2
+        local estimatedTime = math.random(30, 35)
+        isDuping = true
+
+        Rayfield:Notify({
+            Title = "Duping " .. itemName,
+            Content = "Estimated time: " .. estimatedTime .. "s",
+            Duration = 5
+        })
+
+        task.spawn(function()
+            local interval = estimatedTime / (targetAmount - currentAmount)
+
+            local function getCurrent()
+                if isSword then return fakeSwords[itemName] or 0
+                elseif isMelee then return fakeMelees[itemName] or 0
+                else return fakeItems[itemName] or 0 end
+            end
+
+            local function increment()
+                if isSword then fakeSwords[itemName] = (fakeSwords[itemName] or 0) + 1
+                elseif isMelee then fakeMelees[itemName] = (fakeMelees[itemName] or 0) + 1
+                else fakeItems[itemName] = (fakeItems[itemName] or 0) + 1 end
+            end
+
+            while getCurrent() < targetAmount do
+                task.wait(interval)
+                increment()
+            end
+
+            pushInventory()
+
+            isDuping = false
+            Rayfield:Notify({
+                Title = "Dupe Complete!",
+                Content = itemName .. " duped to " .. targetAmount,
+                Duration = 5
+            })
+        end)
+    end,
+})
+
+-- Auto Dupe Tab
+local AutoDupeTab = Window:CreateTab("Auto Dupe", 4483362458)
+local isAutoDuping = false
+
+AutoDupeTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Toggle on to automatically dupe your entire inventory every second."
+})
+
+AutoDupeTab:CreateToggle({
+    Name = "Auto Dupe Inventory",
+    CurrentValue = false,
+    Flag = "AutoDupeToggle",
+    Callback = function(value)
+        isAutoDuping = value
+
+        if value then
+            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every second.", Duration = 3 })
+            task.spawn(function()
+                while isAutoDuping do
+                    for name, qty in pairs(fakeItems) do
+                        fakeItems[name] = qty * 2
+                    end
+                    for name, qty in pairs(fakeSwords) do
+                        fakeSwords[name] = qty * 2
+                    end
+                    for name, qty in pairs(fakeMelees) do
+                        fakeMelees[name] = qty * 2
+                    end
+                    pushInventory()
+                    task.wait(2)
+                end
+            end)
+        else
+            Rayfield:Notify({ Title = "Auto Dupe", Content = "Stopped!", Duration = 3 })
+        end
+    end,
+})
