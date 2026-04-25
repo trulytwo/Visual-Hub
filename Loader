@@ -21,6 +21,10 @@ local isFiringMelees = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
+-- ══════════════════════════════════════
+-- WeaponClassification.Tools Data
+-- ══════════════════════════════════════
+
 local SWORDS = {
     "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
     "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
@@ -43,6 +47,10 @@ for _, v in ipairs(SWORDS) do SWORD_SET[v] = true end
 local MELEE_SET = {}
 for _, v in ipairs(MELEES) do MELEE_SET[v] = true end
 
+-- ══════════════════════════════════════
+-- TitlesConfig.Titles Data
+-- ══════════════════════════════════════
+
 local ALL_TITLES = {
     "Novice", "Apprentice", "Warrior", "Champion", "King",
     "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
@@ -58,6 +66,10 @@ local ALL_TITLES = {
     "Disgraced One", "Cosmic Being", "Demon King", "Destiny Marked",
     "Battlefield Warlord", "Time Tyrant", "Ancient Mage", "Golden King"
 }
+
+-- ══════════════════════════════════════
+-- UpdateInventory Hook
+-- ══════════════════════════════════════
 
 UpdateInventory.OnClientEvent:Connect(function(dataType, items)
     if dataType == "Items" then
@@ -160,6 +172,10 @@ TitleDataSync.OnClientEvent:Connect(function(data)
     end
 end)
 
+-- ══════════════════════════════════════
+-- Core Functions
+-- ══════════════════════════════════════
+
 local function giveItem(itemName, amount)
     if SWORD_SET[itemName] then
         fakeSwords[itemName] = (fakeSwords[itemName] or 0) + amount
@@ -172,6 +188,40 @@ local function giveItem(itemName, amount)
         firesignal(NotifyItemDrop.OnClientEvent, {
             isBulk = true,
             items = { [itemName] = amount }
+        })
+    end)
+end
+
+local function giveSword(swordName)
+    fakeSwords[swordName] = (fakeSwords[swordName] or 0) + 1
+    local items = {}
+    for name, qty in pairs(fakeSwords) do
+        table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+    end
+    isFiringSwords = true
+    firesignal(UpdateInventory.OnClientEvent, "Sword", items)
+    isFiringSwords = false
+    task.spawn(function()
+        firesignal(NotifyItemDrop.OnClientEvent, {
+            isBulk = true,
+            items = { [swordName] = 1 }
+        })
+    end)
+end
+
+local function giveMelee(meleeName)
+    fakeMelees[meleeName] = (fakeMelees[meleeName] or 0) + 1
+    local items = {}
+    for name, qty in pairs(fakeMelees) do
+        table.insert(items, { name = name, quantity = qty, image = "rbxassetid://0" })
+    end
+    isFiringMelees = true
+    firesignal(UpdateInventory.OnClientEvent, "Melee", items)
+    isFiringMelees = false
+    task.spawn(function()
+        firesignal(NotifyItemDrop.OnClientEvent, {
+            isBulk = true,
+            items = { [meleeName] = 1 }
         })
     end)
 end
@@ -231,18 +281,25 @@ local function setTitle(titleName)
     end)
 end
 
+-- ══════════════════════════════════════
+-- Rayfield UI
+-- ══════════════════════════════════════
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Express Hub",
-    LoadingTitle = "Express Hub",
+    Name = "Express Spawner",
+    LoadingTitle = "Express Spawner",
     LoadingSubtitle = "Loading...",
     Theme = "Default",
     DisableRayfieldPrompts = true,
     DisableBuildWarnings = true,
 })
 
+-- ══════════════════════════════════════
 -- Bounty Tab
+-- ══════════════════════════════════════
+
 local BountyTab = Window:CreateTab("Bounty", 4483362458)
 local BountyValue = 0
 
@@ -276,8 +333,11 @@ BountyTab:CreateButton({
     end,
 })
 
--- Drops Tab
-local DropsTab = Window:CreateTab("Drops", 4483362458)
+-- ══════════════════════════════════════
+-- Items Tab
+-- ══════════════════════════════════════
+
+local DropsTab = Window:CreateTab("Items", 4483362458)
 local ItemName = ""
 local ItemAmount = 1
 
@@ -383,37 +443,115 @@ DropsTab:CreateButton({
     end,
 })
 
--- Titles Tab
+-- ══════════════════════════════════════
+-- Swords Tab (WeaponClassification.Tools → SWORDS)
+-- ══════════════════════════════════════
+
+local SwordsTab = Window:CreateTab("Swords", 4483362458)
+local SelectedSword = SWORDS[1]
+
+SwordsTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Select a sword from the dropdown and press Spawn Sword. It will appear in your Sword inventory!"
+})
+
+SwordsTab:CreateDropdown({
+    Name = "Select Sword",
+    Options = SWORDS,
+    CurrentOption = { SWORDS[1] },
+    MultipleOptions = false,
+    Flag = "SwordDropdown",
+    Callback = function(option)
+        SelectedSword = option[1] or option
+    end,
+})
+
+SwordsTab:CreateButton({
+    Name = "Spawn Sword",
+    Callback = function()
+        if not SelectedSword or SelectedSword == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Select a sword first!", Duration = 3 })
+            return
+        end
+        task.spawn(function() giveSword(SelectedSword) end)
+        Rayfield:Notify({ Title = "Sword Spawned!", Content = SelectedSword .. " added to your inventory.", Duration = 3 })
+    end,
+})
+
+-- ══════════════════════════════════════
+-- Melees Tab (WeaponClassification.Tools → MELEES)
+-- ══════════════════════════════════════
+
+local MeleesTab = Window:CreateTab("Melees", 4483362458)
+local SelectedMelee = MELEES[1]
+
+MeleesTab:CreateParagraph({
+    Title = "ℹ️ Info",
+    Content = "Select a melee from the dropdown and press Spawn Melee. It will appear in your Melee inventory!"
+})
+
+MeleesTab:CreateDropdown({
+    Name = "Select Melee",
+    Options = MELEES,
+    CurrentOption = { MELEES[1] },
+    MultipleOptions = false,
+    Flag = "MeleeDropdown",
+    Callback = function(option)
+        SelectedMelee = option[1] or option
+    end,
+})
+
+MeleesTab:CreateButton({
+    Name = "Spawn Melee",
+    Callback = function()
+        if not SelectedMelee or SelectedMelee == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Select a melee first!", Duration = 3 })
+            return
+        end
+        task.spawn(function() giveMelee(SelectedMelee) end)
+        Rayfield:Notify({ Title = "Melee Spawned!", Content = SelectedMelee .. " added to your inventory.", Duration = 3 })
+    end,
+})
+
+-- ══════════════════════════════════════
+-- Titles Tab (TitlesConfig.Titles)
+-- ══════════════════════════════════════
+
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
-local TitleInput = ""
+local SelectedTitle = ALL_TITLES[1]
 
 TitlesTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Type any title name and press Set Title. Works for locked titles too!"
+    Content = "Select any title from the dropdown and press Set Title. Works for locked titles too!"
 })
 
-TitlesTab:CreateInput({
-    Name = "Title Name",
-    PlaceholderText = "e.g. Eminence in Shadow",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(value)
-        TitleInput = value
+TitlesTab:CreateDropdown({
+    Name = "Select Title",
+    Options = ALL_TITLES,
+    CurrentOption = { ALL_TITLES[1] },
+    MultipleOptions = false,
+    Flag = "TitleDropdown",
+    Callback = function(option)
+        SelectedTitle = option[1] or option
     end,
 })
 
 TitlesTab:CreateButton({
     Name = "Set Title",
     Callback = function()
-        if TitleInput == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter a title name!", Duration = 3 })
+        if not SelectedTitle or SelectedTitle == "" then
+            Rayfield:Notify({ Title = "Error", Content = "Select a title first!", Duration = 3 })
             return
         end
-        task.spawn(function() setTitle(TitleInput) end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. TitleInput, Duration = 3 })
+        task.spawn(function() setTitle(SelectedTitle) end)
+        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. SelectedTitle, Duration = 3 })
     end,
 })
 
+-- ══════════════════════════════════════
 -- Dupe Tab
+-- ══════════════════════════════════════
+
 local DupeTab = Window:CreateTab("Dupe", 4483362458)
 local DupeItemName = ""
 local isDuping = false
@@ -493,44 +631,5 @@ DupeTab:CreateButton({
                 Duration = 5
             })
         end)
-    end,
-})
-
--- Auto Dupe Tab
-local AutoDupeTab = Window:CreateTab("Auto Dupe", 4483362458)
-local isAutoDuping = false
-
-AutoDupeTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Toggle on to automatically dupe your entire inventory every second."
-})
-
-AutoDupeTab:CreateToggle({
-    Name = "Auto Dupe Inventory",
-    CurrentValue = false,
-    Flag = "AutoDupeToggle",
-    Callback = function(value)
-        isAutoDuping = value
-
-        if value then
-            Rayfield:Notify({ Title = "Auto Dupe", Content = "Started! Duping every second.", Duration = 3 })
-            task.spawn(function()
-                while isAutoDuping do
-                    for name, qty in pairs(fakeItems) do
-                        fakeItems[name] = qty * 2
-                    end
-                    for name, qty in pairs(fakeSwords) do
-                        fakeSwords[name] = qty * 2
-                    end
-                    for name, qty in pairs(fakeMelees) do
-                        fakeMelees[name] = qty * 2
-                    end
-                    pushInventory()
-                    task.wait(2)
-                end
-            end)
-        else
-            Rayfield:Notify({ Title = "Auto Dupe", Content = "Stopped!", Duration = 3 })
-        end
     end,
 })
