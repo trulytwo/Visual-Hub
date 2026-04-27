@@ -60,11 +60,15 @@ if okW and WeaponClassification then
     if Tools then
         local parsedSwords = {}
         local parsedMelees = {}
+        local seenSwords = {}
+        local seenMelees = {}
         for name, wtype in pairs(Tools) do
             if type(name) == "string" then
-                if wtype == "Sword" then
+                if wtype == "Sword" and not seenSwords[name] then
+                    seenSwords[name] = true
                     table.insert(parsedSwords, name)
-                elseif wtype == "Melee" then
+                elseif wtype == "Melee" and not seenMelees[name] then
+                    seenMelees[name] = true
                     table.insert(parsedMelees, name)
                 end
             end
