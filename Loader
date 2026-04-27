@@ -21,11 +21,15 @@ local isFiringMelees = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
--- ══════════════════════════════════════
--- WeaponClassification.Tools Data
--- ══════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════
+-- LIVE MODULE LOADING
+-- Requires the real modules from ReplicatedStorage at runtime.
+-- Falls back to hardcoded lists if the require fails.
+-- ══════════════════════════════════════════════════════════════
 
-local SWORDS = {
+-- ── WeaponClassification.Tools ────────────────────────────────
+
+local SWORDS_FALLBACK = {
     "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
     "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
     "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor",
@@ -33,7 +37,7 @@ local SWORDS = {
     "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo"
 }
 
-local MELEES = {
+local MELEES_FALLBACK = {
     "Combat", "Fists", "Gauntlets", "Brass Knuckles", "Dragon Gauntlets",
     "Fighting Style", "Gojo", "Yuji", "Sukuna", "Alucard",
     "Saber Alter", "Anos", "Gilgamesh", "Madoka", "Qin Shi",
@@ -41,17 +45,31 @@ local MELEES = {
     "Strongest Shinobi", "Moon Slayer", "The World", "Cosmic Being"
 }
 
+local SWORDS = SWORDS_FALLBACK
+local MELEES = MELEES_FALLBACK
+
+local okW, WeaponClassification = pcall(function()
+    return require(rs:WaitForChild("Modules"):WaitForChild("WeaponClassification"))
+end)
+if okW and WeaponClassification then
+    local Tools = WeaponClassification.Tools or WeaponClassification
+    if Tools.SWORDS and #Tools.SWORDS > 0 then
+        SWORDS = Tools.SWORDS
+    end
+    if Tools.MELEES and #Tools.MELEES > 0 then
+        MELEES = Tools.MELEES
+    end
+end
+
 local SWORD_SET = {}
 for _, v in ipairs(SWORDS) do SWORD_SET[v] = true end
 
 local MELEE_SET = {}
 for _, v in ipairs(MELEES) do MELEE_SET[v] = true end
 
--- ══════════════════════════════════════
--- TitlesConfig.Titles Data
--- ══════════════════════════════════════
+-- ── TitlesConfig.Titles ───────────────────────────────────────
 
-local ALL_TITLES = {
+local TITLES_FALLBACK = {
     "Novice", "Apprentice", "Warrior", "Champion", "King",
     "Collector", "Hoarder", "Treasure Hunter", "Lucky Novice",
     "Fortune Seeker", "Lucky Star", "Blessed One", "Blessed Sovereign",
@@ -66,6 +84,26 @@ local ALL_TITLES = {
     "Disgraced One", "Cosmic Being", "Demon King", "Destiny Marked",
     "Battlefield Warlord", "Time Tyrant", "Ancient Mage", "Golden King"
 }
+
+local ALL_TITLES = TITLES_FALLBACK
+
+local okT, TitlesConfig = pcall(function()
+    return require(rs:WaitForChild("Modules"):WaitForChild("TitlesConfig"))
+end)
+if okT and TitlesConfig then
+    -- TitlesConfig.Titles is a dict keyed by title name; extract the keys
+    local Titles = TitlesConfig.Titles or TitlesConfig
+    local parsed = {}
+    for titleName, _ in pairs(Titles) do
+        if type(titleName) == "string" then
+            table.insert(parsed, titleName)
+        end
+    end
+    if #parsed > 0 then
+        table.sort(parsed)
+        ALL_TITLES = parsed
+    end
+end
 
 -- ══════════════════════════════════════
 -- UpdateInventory Hook
@@ -406,13 +444,30 @@ DropsTab:CreateButton({
 })
 
 DropsTab:CreateButton({
+    Name = "Ragna Set",
+    Callback = function()
+        local ragnaSet = {
+            { "Silver Requiem", 1 },
+            { "Black Frost",    3 },
+            { "Wyrm Brand",     7 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(ragnaSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Ragna Set", Content = "Given Silver Requiem x1, Black Frost x3, Wyrm Brand x7!", Duration = 4 })
+    end,
+})
+
+DropsTab:CreateButton({
     Name = "Madoka Set",
     Callback = function()
         local madokaSet = {
-            { "Pink Gem", 1 },
-            { "Radiant Core", 3 },
-            { "Sacred Bow", 5 },
-            { "Heart", 100 },
+            { "Pink Gem",       1 },
+            { "Radiant Core",   3 },
+            { "Sacred Bow",     5 },
+            { "Heart",        100 },
             { "Divine Fragment", 8 },
         }
         task.spawn(function()
@@ -428,9 +483,9 @@ DropsTab:CreateButton({
     Name = "Dio Set",
     Callback = function()
         local dioSet = {
-            { "Vampire Omen", 2 },
-            { "World Core", 6 },
-            { "Time Remnant", 12 },
+            { "Vampire Omen",    2 },
+            { "World Core",      6 },
+            { "Time Remnant",   12 },
             { "Dominion Brand", 80 },
             { "Power Fragment", 20 },
         }
@@ -443,16 +498,17 @@ DropsTab:CreateButton({
     end,
 })
 
--- ══════════════════════════════════════
--- Swords Tab (WeaponClassification.Tools → SWORDS)
--- ══════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════
+-- Swords Tab
+-- Live data from WeaponClassification.Tools → SWORDS
+-- ══════════════════════════════════════════════════════════════
 
 local SwordsTab = Window:CreateTab("Swords", 4483362458)
 local SelectedSword = SWORDS[1]
 
 SwordsTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Select a sword from the dropdown and press Spawn Sword. It will appear in your Sword inventory!"
+    Content = "List loaded live from WeaponClassification.Tools. Select a sword and press Spawn Sword."
 })
 
 SwordsTab:CreateDropdown({
@@ -478,16 +534,17 @@ SwordsTab:CreateButton({
     end,
 })
 
--- ══════════════════════════════════════
--- Melees Tab (WeaponClassification.Tools → MELEES)
--- ══════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════
+-- Melees Tab
+-- Live data from WeaponClassification.Tools → MELEES
+-- ══════════════════════════════════════════════════════════════
 
 local MeleesTab = Window:CreateTab("Melees", 4483362458)
 local SelectedMelee = MELEES[1]
 
 MeleesTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Select a melee from the dropdown and press Spawn Melee. It will appear in your Melee inventory!"
+    Content = "List loaded live from WeaponClassification.Tools. Select a melee and press Spawn Melee."
 })
 
 MeleesTab:CreateDropdown({
@@ -513,16 +570,17 @@ MeleesTab:CreateButton({
     end,
 })
 
--- ══════════════════════════════════════
--- Titles Tab (TitlesConfig.Titles)
--- ══════════════════════════════════════
+-- ══════════════════════════════════════════════════════════════
+-- Titles Tab
+-- Live data from TitlesConfig.Titles (keys sorted A–Z)
+-- ══════════════════════════════════════════════════════════════
 
 local TitlesTab = Window:CreateTab("Titles", 4483362458)
 local SelectedTitle = ALL_TITLES[1]
 
 TitlesTab:CreateParagraph({
     Title = "ℹ️ Info",
-    Content = "Select any title from the dropdown and press Set Title. Works for locked titles too!"
+    Content = "List loaded live from TitlesConfig.Titles. Select any title and press Set Title. Works for locked titles too!"
 })
 
 TitlesTab:CreateDropdown({
