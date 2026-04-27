@@ -48,16 +48,35 @@ local MELEES_FALLBACK = {
 local SWORDS = SWORDS_FALLBACK
 local MELEES = MELEES_FALLBACK
 
+-- WeaponClassification.Tools is a flat dict:
+--   { ["ToolName"] = "Sword" | "Melee" | "Power", ... }
+-- Iterate pairs and bucket by value string.
+local Modules = rs:WaitForChild("Modules")
 local okW, WeaponClassification = pcall(function()
-    return require(rs:WaitForChild("Modules"):WaitForChild("WeaponClassification"))
+    return require(Modules:WaitForChild("WeaponClassification"))
 end)
 if okW and WeaponClassification then
-    local Tools = WeaponClassification.Tools or WeaponClassification
-    if Tools.SWORDS and #Tools.SWORDS > 0 then
-        SWORDS = Tools.SWORDS
-    end
-    if Tools.MELEES and #Tools.MELEES > 0 then
-        MELEES = Tools.MELEES
+    local Tools = WeaponClassification.Tools
+    if Tools then
+        local parsedSwords = {}
+        local parsedMelees = {}
+        for name, wtype in pairs(Tools) do
+            if type(name) == "string" then
+                if wtype == "Sword" then
+                    table.insert(parsedSwords, name)
+                elseif wtype == "Melee" then
+                    table.insert(parsedMelees, name)
+                end
+            end
+        end
+        if #parsedSwords > 0 then
+            table.sort(parsedSwords)
+            SWORDS = parsedSwords
+        end
+        if #parsedMelees > 0 then
+            table.sort(parsedMelees)
+            MELEES = parsedMelees
+        end
     end
 end
 
@@ -68,6 +87,8 @@ local MELEE_SET = {}
 for _, v in ipairs(MELEES) do MELEE_SET[v] = true end
 
 -- ── TitlesConfig.Titles ───────────────────────────────────────
+-- TitlesConfig.Titles is a flat dict: { ["Title Name"] = { ... }, ... }
+-- Extract the keys.
 
 local TITLES_FALLBACK = {
     "Novice", "Apprentice", "Warrior", "Champion", "King",
@@ -88,20 +109,21 @@ local TITLES_FALLBACK = {
 local ALL_TITLES = TITLES_FALLBACK
 
 local okT, TitlesConfig = pcall(function()
-    return require(rs:WaitForChild("Modules"):WaitForChild("TitlesConfig"))
+    return require(Modules:WaitForChild("TitlesConfig"))
 end)
 if okT and TitlesConfig then
-    -- TitlesConfig.Titles is a dict keyed by title name; extract the keys
-    local Titles = TitlesConfig.Titles or TitlesConfig
-    local parsed = {}
-    for titleName, _ in pairs(Titles) do
-        if type(titleName) == "string" then
-            table.insert(parsed, titleName)
+    local Titles = TitlesConfig.Titles
+    if Titles then
+        local parsed = {}
+        for titleName, _ in pairs(Titles) do
+            if type(titleName) == "string" then
+                table.insert(parsed, titleName)
+            end
         end
-    end
-    if #parsed > 0 then
-        table.sort(parsed)
-        ALL_TITLES = parsed
+        if #parsed > 0 then
+            table.sort(parsed)
+            ALL_TITLES = parsed
+        end
     end
 end
 
