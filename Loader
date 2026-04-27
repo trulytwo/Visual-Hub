@@ -30,7 +30,8 @@ local SWORDS = {
     "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
     "Saber", "Abyssal Empress", "Dragon Goddess", "Escanor",
     "Ice Queen", "Gryphon", "Ichigo", "KatanaSword", "Great Mage",
-    "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo"
+    "Dark Blade", "Atomic", "Cutlass", "Yamato", "Jinwoo",
+    "Anti Magic"
 }
 
 local MELEES = {
@@ -64,7 +65,8 @@ local ALL_TITLES = {
     "Strongest Shinobi", "Santa's Helper", "Egg Seeker", "Dragon Queen",
     "Soul Reaper", "Six Eyed Demon", "Corrupt Tyrant", "Cupid's Chosen",
     "Disgraced One", "Cosmic Being", "Demon King", "Destiny Marked",
-    "Battlefield Warlord", "Time Tyrant", "Ancient Mage", "Golden King"
+    "Battlefield Warlord", "Time Tyrant", "Ancient Mage", "Golden King",
+    "Demon Dweller"
 }
 
 -- ══════════════════════════════════════
@@ -440,6 +442,23 @@ DropsTab:CreateButton({
             end
         end)
         Rayfield:Notify({ Title = "Dio Set", Content = "Given all Dio Set items!", Duration = 3 })
+    end,
+})
+
+DropsTab:CreateButton({
+    Name = "Ragna Set",
+    Callback = function()
+        local ragnaSet = {
+            { "Silver Requiem", 1 },
+            { "Black Frost", 3 },
+            { "Wyrm Brand", 7 },
+        }
+        task.spawn(function()
+            for _, v in ipairs(ragnaSet) do
+                giveItem(v[1], v[2])
+            end
+        end)
+        Rayfield:Notify({ Title = "Ragna Set", Content = "Given all Ragna Set items!", Duration = 3 })
     end,
 })
 
