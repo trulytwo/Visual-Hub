@@ -279,7 +279,7 @@ end
 -- WindUI
 -- ══════════════════════════════════════
 
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footrest/WindUI/main/loader.lua"))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/lorettadev/windui/main/source.lua"))()
 
 local Window = WindUI:CreateWindow({
     Title = "Express Spawner",
