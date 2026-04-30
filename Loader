@@ -21,10 +21,6 @@ local isFiringMelees = false
 local lastFire = 0
 local DEBOUNCE = 0.5
 
--- ══════════════════════════════════════
--- WeaponClassification.Tools Data
--- ══════════════════════════════════════
-
 local SWORDS = {
     "Shadow", "Ragna", "Rimuru", "Shadow Monarch", "True Aizen",
     "Dual Katana", "Longsword", "Aizen", "Sword", "Katana",
@@ -47,10 +43,6 @@ for _, v in ipairs(SWORDS) do SWORD_SET[v] = true end
 
 local MELEE_SET = {}
 for _, v in ipairs(MELEES) do MELEE_SET[v] = true end
-
--- ══════════════════════════════════════
--- TitlesConfig.Titles Data
--- ══════════════════════════════════════
 
 local ALL_TITLES = {
     "Novice", "Apprentice", "Warrior", "Champion", "King",
@@ -284,54 +276,72 @@ local function setTitle(titleName)
 end
 
 -- ══════════════════════════════════════
--- Rayfield UI
+-- WindUI
 -- ══════════════════════════════════════
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footrest/WindUI/main/loader.lua"))()
 
-local Window = Rayfield:CreateWindow({
-    Name = "Express Spawner",
-    LoadingTitle = "Express Spawner",
-    LoadingSubtitle = "Loading...",
-    Theme = "Default",
-    DisableRayfieldPrompts = true,
-    DisableBuildWarnings = true,
+local Window = WindUI:CreateWindow({
+    Title = "Express Spawner",
+    Icon = "zap",
+    Author = "Express",
+    Folder = "ExpressSpawner",
+    Size = UDim2.fromOffset(580, 460),
+    Transparent = true,
+    Theme = "Dark",
 })
+
+local Tabs = {
+    Bounty  = Window:Tab({ Title = "Bounty",  Icon = "sword" }),
+    Items   = Window:Tab({ Title = "Items",   Icon = "package" }),
+    Swords  = Window:Tab({ Title = "Swords",  Icon = "shield" }),
+    Melees  = Window:Tab({ Title = "Melees",  Icon = "hand" }),
+    Titles  = Window:Tab({ Title = "Titles",  Icon = "crown" }),
+    Dupe    = Window:Tab({ Title = "Dupe",    Icon = "copy" }),
+}
 
 -- ══════════════════════════════════════
 -- Bounty Tab
 -- ══════════════════════════════════════
 
-local BountyTab = Window:CreateTab("Bounty", 4483362458)
 local BountyValue = 0
 
-BountyTab:CreateParagraph({
-    Title = "Bounty Changer",
-    Content = "Change your bounty."
-})
+Tabs.Bounty:Section({ Title = "Bounty Changer" })
 
-BountyTab:CreateSlider({
-    Name = "Bounty Amount",
-    Range = {0, 50000000},
-    Increment = 1000,
-    CurrentValue = 0,
-    Flag = "BountySlider",
+Tabs.Bounty:Slider({
+    Title = "Bounty Amount",
+    Description = "Set how much bounty to apply",
+    Min = 0,
+    Max = 50000000,
+    Default = 0,
     Callback = function(value)
         BountyValue = value
     end,
 })
 
-BountyTab:CreateButton({
-    Name = "Set Bounty",
+Tabs.Bounty:Button({
+    Title = "Set Bounty",
+    Description = "Apply the slider value as your bounty",
     Callback = function()
         bounty.Value = BountyValue
+        WindUI:Notify({
+            Title = "Bounty Set",
+            Content = "Bounty set to " .. BountyValue,
+            Duration = 3,
+        })
     end,
 })
 
-BountyTab:CreateButton({
-    Name = "Max Bounty",
+Tabs.Bounty:Button({
+    Title = "Max Bounty",
+    Description = "Set bounty to 50,000,000",
     Callback = function()
         bounty.Value = 50000000
+        WindUI:Notify({
+            Title = "Max Bounty",
+            Content = "Bounty maxed out!",
+            Duration = 3,
+        })
     end,
 })
 
@@ -339,231 +349,192 @@ BountyTab:CreateButton({
 -- Items Tab
 -- ══════════════════════════════════════
 
-local DropsTab = Window:CreateTab("Items", 4483362458)
 local ItemName = ""
 local ItemAmount = 1
 
-DropsTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Type an item name and amount then press Give Item. Swords and melees go to their correct inventory tabs!"
-})
+Tabs.Items:Section({ Title = "Custom Item" })
 
-DropsTab:CreateInput({
-    Name = "Item Name",
-    PlaceholderText = "e.g. Aura Crate",
-    RemoveTextAfterFocusLost = false,
+Tabs.Items:Input({
+    Title = "Item Name",
+    Placeholder = "e.g. Aura Crate",
     Callback = function(value)
         ItemName = value
     end,
 })
 
-DropsTab:CreateInput({
-    Name = "Amount",
-    PlaceholderText = "e.g. 10",
-    RemoveTextAfterFocusLost = false,
+Tabs.Items:Input({
+    Title = "Amount",
+    Placeholder = "e.g. 10",
     Callback = function(value)
         ItemAmount = tonumber(value) or 1
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Give Item",
+Tabs.Items:Button({
+    Title = "Give Item",
     Callback = function()
         if ItemName == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
             return
         end
         task.spawn(function() giveItem(ItemName, ItemAmount) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
+        WindUI:Notify({ Title = "Success", Content = "Given " .. ItemAmount .. "x " .. ItemName, Duration = 3 })
     end,
 })
 
-DropsTab:CreateParagraph({
-    Title = "Quick Buttons",
-    Content = "Quick give common items!"
-})
+Tabs.Items:Section({ Title = "Quick Buttons" })
 
-DropsTab:CreateButton({
-    Name = "Quick: Aura Crate x1",
+Tabs.Items:Button({
+    Title = "Aura Crate x1",
     Callback = function()
         task.spawn(function() giveItem("Aura Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
+        WindUI:Notify({ Title = "Success", Content = "Given Aura Crate!", Duration = 3 })
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Quick: Cosmetic Crate x1",
+Tabs.Items:Button({
+    Title = "Cosmetic Crate x1",
     Callback = function()
         task.spawn(function() giveItem("Cosmetic Crate", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
+        WindUI:Notify({ Title = "Success", Content = "Given Cosmetic Crate!", Duration = 3 })
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Quick: 2xLuck Product x1",
+Tabs.Items:Button({
+    Title = "2xLuck Product x1",
     Callback = function()
         task.spawn(function() giveItem("2xLuck Product", 1) end)
-        Rayfield:Notify({ Title = "Success", Content = "Given 2xLuck Product!", Duration = 3 })
+        WindUI:Notify({ Title = "Success", Content = "Given 2xLuck Product!", Duration = 3 })
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Madoka Set",
+Tabs.Items:Section({ Title = "Sets" })
+
+Tabs.Items:Button({
+    Title = "Madoka Set",
     Callback = function()
         local madokaSet = {
-            { "Pink Gem", 1 },
-            { "Radiant Core", 3 },
-            { "Sacred Bow", 5 },
-            { "Heart", 100 },
-            { "Divine Fragment", 8 },
+            { "Pink Gem", 1 }, { "Radiant Core", 3 }, { "Sacred Bow", 5 },
+            { "Heart", 100 }, { "Divine Fragment", 8 },
         }
         task.spawn(function()
-            for _, v in ipairs(madokaSet) do
-                giveItem(v[1], v[2])
-            end
+            for _, v in ipairs(madokaSet) do giveItem(v[1], v[2]) end
         end)
-        Rayfield:Notify({ Title = "Madoka Set", Content = "Given all Madoka Set items!", Duration = 3 })
+        WindUI:Notify({ Title = "Madoka Set", Content = "Given all Madoka Set items!", Duration = 3 })
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Dio Set",
+Tabs.Items:Button({
+    Title = "Dio Set",
     Callback = function()
         local dioSet = {
-            { "Vampire Omen", 2 },
-            { "World Core", 6 },
-            { "Time Remnant", 12 },
-            { "Dominion Brand", 80 },
-            { "Power Fragment", 20 },
+            { "Vampire Omen", 2 }, { "World Core", 6 }, { "Time Remnant", 12 },
+            { "Dominion Brand", 80 }, { "Power Fragment", 20 },
         }
         task.spawn(function()
-            for _, v in ipairs(dioSet) do
-                giveItem(v[1], v[2])
-            end
+            for _, v in ipairs(dioSet) do giveItem(v[1], v[2]) end
         end)
-        Rayfield:Notify({ Title = "Dio Set", Content = "Given all Dio Set items!", Duration = 3 })
+        WindUI:Notify({ Title = "Dio Set", Content = "Given all Dio Set items!", Duration = 3 })
     end,
 })
 
-DropsTab:CreateButton({
-    Name = "Ragna Set",
+Tabs.Items:Button({
+    Title = "Ragna Set",
     Callback = function()
         local ragnaSet = {
-            { "Silver Requiem", 1 },
-            { "Black Frost", 3 },
-            { "Wyrm Brand", 7 },
+            { "Silver Requiem", 1 }, { "Black Frost", 3 }, { "Wyrm Brand", 7 },
         }
         task.spawn(function()
-            for _, v in ipairs(ragnaSet) do
-                giveItem(v[1], v[2])
-            end
+            for _, v in ipairs(ragnaSet) do giveItem(v[1], v[2]) end
         end)
-        Rayfield:Notify({ Title = "Ragna Set", Content = "Given all Ragna Set items!", Duration = 3 })
+        WindUI:Notify({ Title = "Ragna Set", Content = "Given all Ragna Set items!", Duration = 3 })
     end,
 })
 
 -- ══════════════════════════════════════
--- Swords Tab (WeaponClassification.Tools → SWORDS)
+-- Swords Tab
 -- ══════════════════════════════════════
 
-local SwordsTab = Window:CreateTab("Swords", 4483362458)
 local SelectedSword = SWORDS[1]
 
-SwordsTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Select a sword from the dropdown and press Spawn Sword. It will appear in your Sword inventory!"
-})
+Tabs.Swords:Section({ Title = "Sword Spawner" })
 
-SwordsTab:CreateDropdown({
-    Name = "Select Sword",
-    Options = SWORDS,
-    CurrentOption = { SWORDS[1] },
-    MultipleOptions = false,
-    Flag = "SwordDropdown",
-    Callback = function(option)
-        SelectedSword = option[1] or option
+Tabs.Swords:Dropdown({
+    Title = "Select Sword",
+    Values = SWORDS,
+    Default = SWORDS[1],
+    Callback = function(value)
+        SelectedSword = value
     end,
 })
 
-SwordsTab:CreateButton({
-    Name = "Spawn Sword",
+Tabs.Swords:Button({
+    Title = "Spawn Sword",
     Callback = function()
         if not SelectedSword or SelectedSword == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Select a sword first!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Select a sword first!", Duration = 3 })
             return
         end
         task.spawn(function() giveSword(SelectedSword) end)
-        Rayfield:Notify({ Title = "Sword Spawned!", Content = SelectedSword .. " added to your inventory.", Duration = 3 })
+        WindUI:Notify({ Title = "Sword Spawned!", Content = SelectedSword .. " added to your inventory.", Duration = 3 })
     end,
 })
 
 -- ══════════════════════════════════════
--- Melees Tab (WeaponClassification.Tools → MELEES)
+-- Melees Tab
 -- ══════════════════════════════════════
 
-local MeleesTab = Window:CreateTab("Melees", 4483362458)
 local SelectedMelee = MELEES[1]
 
-MeleesTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Select a melee from the dropdown and press Spawn Melee. It will appear in your Melee inventory!"
-})
+Tabs.Melees:Section({ Title = "Melee Spawner" })
 
-MeleesTab:CreateDropdown({
-    Name = "Select Melee",
-    Options = MELEES,
-    CurrentOption = { MELEES[1] },
-    MultipleOptions = false,
-    Flag = "MeleeDropdown",
-    Callback = function(option)
-        SelectedMelee = option[1] or option
+Tabs.Melees:Dropdown({
+    Title = "Select Melee",
+    Values = MELEES,
+    Default = MELEES[1],
+    Callback = function(value)
+        SelectedMelee = value
     end,
 })
 
-MeleesTab:CreateButton({
-    Name = "Spawn Melee",
+Tabs.Melees:Button({
+    Title = "Spawn Melee",
     Callback = function()
         if not SelectedMelee or SelectedMelee == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Select a melee first!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Select a melee first!", Duration = 3 })
             return
         end
         task.spawn(function() giveMelee(SelectedMelee) end)
-        Rayfield:Notify({ Title = "Melee Spawned!", Content = SelectedMelee .. " added to your inventory.", Duration = 3 })
+        WindUI:Notify({ Title = "Melee Spawned!", Content = SelectedMelee .. " added to your inventory.", Duration = 3 })
     end,
 })
 
 -- ══════════════════════════════════════
--- Titles Tab (TitlesConfig.Titles)
+-- Titles Tab
 -- ══════════════════════════════════════
 
-local TitlesTab = Window:CreateTab("Titles", 4483362458)
 local SelectedTitle = ALL_TITLES[1]
 
-TitlesTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Select any title from the dropdown and press Set Title. Works for locked titles too!"
-})
+Tabs.Titles:Section({ Title = "Title Setter" })
 
-TitlesTab:CreateDropdown({
-    Name = "Select Title",
-    Options = ALL_TITLES,
-    CurrentOption = { ALL_TITLES[1] },
-    MultipleOptions = false,
-    Flag = "TitleDropdown",
-    Callback = function(option)
-        SelectedTitle = option[1] or option
+Tabs.Titles:Dropdown({
+    Title = "Select Title",
+    Values = ALL_TITLES,
+    Default = ALL_TITLES[1],
+    Callback = function(value)
+        SelectedTitle = value
     end,
 })
 
-TitlesTab:CreateButton({
-    Name = "Set Title",
+Tabs.Titles:Button({
+    Title = "Set Title",
     Callback = function()
         if not SelectedTitle or SelectedTitle == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Select a title first!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Select a title first!", Duration = 3 })
             return
         end
         task.spawn(function() setTitle(SelectedTitle) end)
-        Rayfield:Notify({ Title = "Success", Content = "Title set to " .. SelectedTitle, Duration = 3 })
+        WindUI:Notify({ Title = "Success", Content = "Title set to " .. SelectedTitle, Duration = 3 })
     end,
 })
 
@@ -571,33 +542,28 @@ TitlesTab:CreateButton({
 -- Dupe Tab
 -- ══════════════════════════════════════
 
-local DupeTab = Window:CreateTab("Dupe", 4483362458)
 local DupeItemName = ""
 local isDuping = false
 
-DupeTab:CreateParagraph({
-    Title = "ℹ️ Info",
-    Content = "Type an item name and press Dupe. The item will be doubled over time."
-})
+Tabs.Dupe:Section({ Title = "Item Duplicator" })
 
-DupeTab:CreateInput({
-    Name = "Item Name",
-    PlaceholderText = "e.g. Aura Crate",
-    RemoveTextAfterFocusLost = false,
+Tabs.Dupe:Input({
+    Title = "Item Name",
+    Placeholder = "e.g. Aura Crate",
     Callback = function(value)
         DupeItemName = value
     end,
 })
 
-DupeTab:CreateButton({
-    Name = "Dupe (2x)",
+Tabs.Dupe:Button({
+    Title = "Dupe (2x)",
     Callback = function()
         if DupeItemName == "" then
-            Rayfield:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Enter an item name!", Duration = 3 })
             return
         end
         if isDuping then
-            Rayfield:Notify({ Title = "Error", Content = "Already duping! Please wait.", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "Already duping! Please wait.", Duration = 3 })
             return
         end
 
@@ -607,7 +573,7 @@ DupeTab:CreateButton({
         local currentAmount = fakeItems[itemName] or fakeSwords[itemName] or fakeMelees[itemName] or 0
 
         if currentAmount <= 0 then
-            Rayfield:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
+            WindUI:Notify({ Title = "Error", Content = "You don't have " .. itemName .. " in your inventory!", Duration = 3 })
             return
         end
 
@@ -615,10 +581,10 @@ DupeTab:CreateButton({
         local estimatedTime = math.random(30, 35)
         isDuping = true
 
-        Rayfield:Notify({
+        WindUI:Notify({
             Title = "Duping " .. itemName,
             Content = "Estimated time: " .. estimatedTime .. "s",
-            Duration = 5
+            Duration = 5,
         })
 
         task.spawn(function()
@@ -642,12 +608,12 @@ DupeTab:CreateButton({
             end
 
             pushInventory()
-
             isDuping = false
-            Rayfield:Notify({
+
+            WindUI:Notify({
                 Title = "Dupe Complete!",
                 Content = itemName .. " duped to " .. targetAmount,
-                Duration = 5
+                Duration = 5,
             })
         end)
     end,
